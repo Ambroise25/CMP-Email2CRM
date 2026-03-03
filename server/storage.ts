@@ -6,12 +6,17 @@ import {
   type BienMatch,
   type Gestionnaire,
   type InsertGestionnaire,
+  type Demande,
+  type InsertDemande,
+  type UpdateDemande,
+  type DemandeWithRelations,
   type PaginatedResponse,
   biens,
   gestionnaires,
+  demandes,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, ilike, and, count } from "drizzle-orm";
+import { eq, sql, and, count } from "drizzle-orm";
 
 function normalizeAddress(addr: string): string {
   return addr
@@ -67,6 +72,10 @@ export interface IStorage {
   getGestionnaires(): Promise<Gestionnaire[]>;
   getGestionnaireById(id: number): Promise<Gestionnaire | undefined>;
   createGestionnaire(gestionnaire: InsertGestionnaire): Promise<Gestionnaire>;
+  getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string }): Promise<PaginatedResponse<DemandeWithRelations>>;
+  getDemandeById(id: number): Promise<DemandeWithRelations | undefined>;
+  createDemande(demande: InsertDemande): Promise<Demande>;
+  updateDemande(id: number, updates: UpdateDemande): Promise<Demande | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -177,6 +186,89 @@ export class DatabaseStorage implements IStorage {
   async createGestionnaire(gestionnaire: InsertGestionnaire): Promise<Gestionnaire> {
     const [created] = await db.insert(gestionnaires).values(gestionnaire).returning();
     return created;
+  }
+
+  async getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string }): Promise<PaginatedResponse<DemandeWithRelations>> {
+    const offset = (page - 1) * limit;
+
+    const conditions = [];
+    if (filters?.bienId) {
+      conditions.push(sql`${demandes.bienId} = ${filters.bienId}`);
+    }
+    if (filters?.etat) {
+      conditions.push(sql`${demandes.etat} = ${filters.etat}`);
+    }
+    if (filters?.metier) {
+      conditions.push(sql`${demandes.metier} = ${filters.metier}`);
+    }
+
+    const whereClause = conditions.length > 0
+      ? sql`${sql.join(conditions, sql` AND `)}`
+      : sql`1=1`;
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(demandes)
+      .where(whereClause);
+
+    const total = totalResult?.count ?? 0;
+
+    const rows = await db
+      .select()
+      .from(demandes)
+      .leftJoin(biens, eq(demandes.bienId, biens.id))
+      .leftJoin(gestionnaires, eq(demandes.gestionnaireId, gestionnaires.id))
+      .where(whereClause)
+      .orderBy(sql`${demandes.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
+
+    const data: DemandeWithRelations[] = rows.map((row) => ({
+      ...row.demandes,
+      bien: row.biens!,
+      gestionnaire: row.gestionnaires!,
+    }));
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getDemandeById(id: number): Promise<DemandeWithRelations | undefined> {
+    const rows = await db
+      .select()
+      .from(demandes)
+      .leftJoin(biens, eq(demandes.bienId, biens.id))
+      .leftJoin(gestionnaires, eq(demandes.gestionnaireId, gestionnaires.id))
+      .where(eq(demandes.id, id));
+
+    if (rows.length === 0) return undefined;
+
+    return {
+      ...rows[0].demandes,
+      bien: rows[0].biens!,
+      gestionnaire: rows[0].gestionnaires!,
+    };
+  }
+
+  async createDemande(demande: InsertDemande): Promise<Demande> {
+    const [created] = await db.insert(demandes).values(demande).returning();
+    return created;
+  }
+
+  async updateDemande(id: number, updates: UpdateDemande): Promise<Demande | undefined> {
+    const [updated] = await db
+      .update(demandes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(demandes.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   User,
   Info,
+  ClipboardList,
 } from "lucide-react";
 
 export default function BiensList() {
@@ -51,6 +52,12 @@ export default function BiensList() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link href="/demandes">
+              <Button variant="outline" data-testid="button-demandes-page">
+                <ClipboardList className="w-4 h-4 mr-2" />
+                Demandes
+              </Button>
+            </Link>
             <Link href="/biens/search">
               <Button variant="outline" data-testid="button-search-page">
                 <Search className="w-4 h-4 mr-2" />

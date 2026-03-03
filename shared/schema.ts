@@ -1,7 +1,21 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, serial, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, index, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const ETATS = ["nouvelle", "en_cours", "rdv_programme", "terminee", "annulee"] as const;
+export const METIERS = ["Etancheite", "Plomberie", "Electricite", "Autre"] as const;
+
+export type Etat = typeof ETATS[number];
+export type Metier = typeof METIERS[number];
+
+export const etatLabels: Record<Etat, string> = {
+  nouvelle: "Nouvelle",
+  en_cours: "En cours",
+  rdv_programme: "RDV programme",
+  terminee: "Terminee",
+  annulee: "Annulee",
+};
 
 export const gestionnaires = pgTable("gestionnaires", {
   id: serial("id").primaryKey(),
@@ -36,11 +50,12 @@ export const biens = pgTable("biens", {
   index("idx_biens_adresse").on(table.adresse),
 ]);
 
-export const biensRelations = relations(biens, ({ one }) => ({
+export const biensRelations = relations(biens, ({ one, many }) => ({
   gestionnaire: one(gestionnaires, {
     fields: [biens.gestionnaireId],
     references: [gestionnaires.id],
   }),
+  demandes: many(demandes),
 }));
 
 export const insertBienSchema = createInsertSchema(biens).omit({
@@ -77,4 +92,56 @@ export type PaginatedResponse<T> = {
     total: number;
     totalPages: number;
   };
+};
+
+export const demandes = pgTable("demandes", {
+  id: serial("id").primaryKey(),
+  bienId: integer("bien_id").notNull().references(() => biens.id),
+  objet: text("objet").notNull(),
+  etat: text("etat").notNull().default("nouvelle"),
+  metier: text("metier").notNull(),
+  detail: text("detail"),
+  commentaire: text("commentaire"),
+  gestionnaireId: integer("gestionnaire_id").notNull().references(() => gestionnaires.id),
+  dateDemandeClient: timestamp("date_demande_client").notNull(),
+  refSyndic: text("ref_syndic"),
+  travauxEnerpur: boolean("travaux_enerpur").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_demandes_bien_id").on(table.bienId),
+  index("idx_demandes_etat").on(table.etat),
+  index("idx_demandes_created_at").on(table.createdAt),
+]);
+
+export const demandesRelations = relations(demandes, ({ one }) => ({
+  bien: one(biens, {
+    fields: [demandes.bienId],
+    references: [biens.id],
+  }),
+  gestionnaire: one(gestionnaires, {
+    fields: [demandes.gestionnaireId],
+    references: [gestionnaires.id],
+  }),
+}));
+
+export const insertDemandeSchema = createInsertSchema(demandes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  etat: z.enum(ETATS).default("nouvelle"),
+  metier: z.enum(METIERS),
+  dateDemandeClient: z.coerce.date(),
+});
+
+export const updateDemandeSchema = insertDemandeSchema.partial();
+
+export type InsertDemande = z.infer<typeof insertDemandeSchema>;
+export type UpdateDemande = z.infer<typeof updateDemandeSchema>;
+export type Demande = typeof demandes.$inferSelect;
+
+export type DemandeWithRelations = Demande & {
+  bien: Bien;
+  gestionnaire: Gestionnaire;
 };

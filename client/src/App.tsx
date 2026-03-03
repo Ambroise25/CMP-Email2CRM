@@ -8,6 +8,9 @@ import BiensList from "@/pages/biens-list";
 import BienDetail from "@/pages/bien-detail";
 import BienForm from "@/pages/bien-form";
 import BienSearch from "@/pages/bien-search";
+import DemandesList from "@/pages/demandes-list";
+import DemandeDetail from "@/pages/demande-detail";
+import DemandeForm from "@/pages/demande-form";
 
 function Router() {
   return (
@@ -17,6 +20,10 @@ function Router() {
       <Route path="/biens/search" component={BienSearch} />
       <Route path="/biens/:id/edit" component={BienForm} />
       <Route path="/biens/:id" component={BienDetail} />
+      <Route path="/demandes" component={DemandesList} />
+      <Route path="/demandes/new" component={DemandeForm} />
+      <Route path="/demandes/:id/edit" component={DemandeForm} />
+      <Route path="/demandes/:id" component={DemandeDetail} />
       <Route component={NotFound} />
     </Switch>
   );

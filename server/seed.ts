@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { gestionnaires, biens } from "@shared/schema";
+import { gestionnaires, biens, demandes } from "@shared/schema";
 import { count } from "drizzle-orm";
 
 export async function seedDatabase() {
@@ -78,6 +78,83 @@ export async function seedDatabase() {
       ville: "Paris",
       gestionnaireId: insertedGestionnaires[4].id,
       information: "Appartement de standing, gardien",
+    },
+  ]);
+
+  const insertedBiens = await db.select().from(biens);
+
+  await db.insert(demandes).values([
+    {
+      bienId: insertedBiens[0].id,
+      objet: "Fuite toiture batiment A",
+      etat: "en_cours",
+      metier: "Etancheite",
+      detail: "Infiltration d'eau constatee au 4eme etage, appartement 402",
+      commentaire: "Urgent - degats des eaux en cours",
+      gestionnaireId: insertedGestionnaires[0].id,
+      dateDemandeClient: new Date("2026-01-15"),
+      refSyndic: "SYN-2026-001",
+      travauxEnerpur: false,
+    },
+    {
+      bienId: insertedBiens[0].id,
+      objet: "Remplacement chauffe-eau collectif",
+      etat: "rdv_programme",
+      metier: "Plomberie",
+      detail: "Chauffe-eau hors service depuis le 20 janvier",
+      gestionnaireId: insertedGestionnaires[0].id,
+      dateDemandeClient: new Date("2026-01-22"),
+      refSyndic: "SYN-2026-002",
+      travauxEnerpur: true,
+    },
+    {
+      bienId: insertedBiens[1].id,
+      objet: "Mise aux normes electriques parties communes",
+      etat: "nouvelle",
+      metier: "Electricite",
+      detail: "Tableau electrique vetuste, non conforme NF C 15-100",
+      gestionnaireId: insertedGestionnaires[0].id,
+      dateDemandeClient: new Date("2026-02-10"),
+    },
+    {
+      bienId: insertedBiens[2].id,
+      objet: "Reparation fuite salle de bain",
+      etat: "terminee",
+      metier: "Plomberie",
+      detail: "Fuite sous le lavabo, joint a remplacer",
+      commentaire: "Intervention realisee le 05/02",
+      gestionnaireId: insertedGestionnaires[1].id,
+      dateDemandeClient: new Date("2026-02-01"),
+    },
+    {
+      bienId: insertedBiens[3].id,
+      objet: "Etancheite terrasse",
+      etat: "annulee",
+      metier: "Etancheite",
+      detail: "Demande annulee par le syndic",
+      commentaire: "Le proprietaire a fait appel a une autre entreprise",
+      gestionnaireId: insertedGestionnaires[2].id,
+      dateDemandeClient: new Date("2026-01-28"),
+      refSyndic: "FON-2026-015",
+    },
+    {
+      bienId: insertedBiens[4].id,
+      objet: "Installation prise electrique cuisine",
+      etat: "nouvelle",
+      metier: "Electricite",
+      gestionnaireId: insertedGestionnaires[2].id,
+      dateDemandeClient: new Date("2026-02-18"),
+    },
+    {
+      bienId: insertedBiens[5].id,
+      objet: "Reparation descente d'eau pluviale",
+      etat: "en_cours",
+      metier: "Autre",
+      detail: "Descente fendue sur 2 metres, risque de degat en facade",
+      gestionnaireId: insertedGestionnaires[3].id,
+      dateDemandeClient: new Date("2026-02-05"),
+      refSyndic: "NEX-2026-008",
+      travauxEnerpur: false,
     },
   ]);
 
