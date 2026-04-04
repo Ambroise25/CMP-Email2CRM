@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "ThqM-CkOneqgdUN1LS8bG"
+uri = "file://README.md"
+type = "text"
+title = "README.md — CRM API"
