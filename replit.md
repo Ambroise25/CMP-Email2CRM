@@ -4,6 +4,7 @@
 API REST pour la gestion de biens immobiliers et demandes d'intervention avec CRUD complet, pagination, filtres avances, et recherche intelligente par adresse avec scoring de similarite.
 
 ## Recent Changes
+- 2026-04-04: Email parser integrated — Gmail IMAP polling, Mistral AI parsing via OpenRouter (ministral-8b-2512), LLM classification step (OUI/NON), automatic bien/demande creation, IMAP archiving to "Email traite"/"Erreurs" folders, `/emails` UI page
 - 2026-03-03: US002 - Added CRUD for demandes (intervention requests) with enums for etats/metiers, filters, and frontend pages
 - 2026-02-20: Initial implementation - CRUD API for biens, search with similarity scoring, PostgreSQL database with seed data
 

@@ -17,6 +17,7 @@ import {
   User,
   Info,
   ClipboardList,
+  Mail,
 } from "lucide-react";
 
 export default function BiensList() {
@@ -56,6 +57,12 @@ export default function BiensList() {
               <Button variant="outline" data-testid="button-demandes-page">
                 <ClipboardList className="w-4 h-4 mr-2" />
                 Demandes
+              </Button>
+            </Link>
+            <Link href="/emails">
+              <Button variant="outline" data-testid="button-emails-page">
+                <Mail className="w-4 h-4 mr-2" />
+                Emails
               </Button>
             </Link>
             <Link href="/biens/search">

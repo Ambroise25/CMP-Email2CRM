@@ -145,3 +145,34 @@ export type DemandeWithRelations = Demande & {
   bien: Bien;
   gestionnaire: Gestionnaire;
 };
+
+export const EMAIL_STATUTS = ["traite", "erreur", "ignore"] as const;
+export type EmailStatut = typeof EMAIL_STATUTS[number];
+
+export const emailLogs = pgTable("email_logs", {
+  id: serial("id").primaryKey(),
+  messageId: text("message_id").notNull().unique(),
+  receivedAt: timestamp("received_at").notNull(),
+  from: text("from").notNull(),
+  subject: text("subject").notNull(),
+  statut: text("statut").notNull().default("traite"),
+  demandeId: integer("demande_id").references(() => demandes.id),
+  erreur: text("erreur"),
+  rawParsed: text("raw_parsed"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_email_logs_message_id").on(table.messageId),
+  index("idx_email_logs_created_at").on(table.createdAt),
+]);
+
+export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEmailLog = z.infer<typeof insertEmailLogSchema>;
+export type EmailLog = typeof emailLogs.$inferSelect;
+
+export type EmailLogWithDemande = EmailLog & {
+  demande?: DemandeWithRelations | null;
+};

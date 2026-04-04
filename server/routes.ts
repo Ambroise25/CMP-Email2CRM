@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, ETATS, METIERS } from "@shared/schema";
 import { ZodError } from "zod";
+import { emailServiceState, triggerManualSync } from "./email-service";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -249,6 +250,36 @@ export async function registerRoutes(
       return res.json(updated);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/emails/logs", async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+      const result = await storage.getEmailLogs(page, limit);
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/emails/status", async (_req, res) => {
+    return res.json({
+      enabled: emailServiceState.enabled,
+      intervalMs: emailServiceState.intervalMs,
+      lastCheck: emailServiceState.lastCheck,
+      nextCheck: emailServiceState.nextCheck,
+      lastError: emailServiceState.lastError,
+    });
+  });
+
+  app.post("/api/emails/sync", async (_req, res) => {
+    try {
+      const result = await triggerManualSync();
+      return res.json({ success: true, ...result });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: String(err) });
     }
   });
 

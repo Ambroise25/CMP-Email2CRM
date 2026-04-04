@@ -11,12 +11,15 @@ import {
   type UpdateDemande,
   type DemandeWithRelations,
   type PaginatedResponse,
+  type EmailLog,
+  type InsertEmailLog,
   biens,
   gestionnaires,
   demandes,
+  emailLogs,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, and, count } from "drizzle-orm";
+import { eq, sql, and, count, desc } from "drizzle-orm";
 
 function normalizeAddress(addr: string): string {
   return addr
@@ -76,6 +79,9 @@ export interface IStorage {
   getDemandeById(id: number): Promise<DemandeWithRelations | undefined>;
   createDemande(demande: InsertDemande): Promise<Demande>;
   updateDemande(id: number, updates: UpdateDemande): Promise<Demande | undefined>;
+  getEmailLogs(page: number, limit: number): Promise<PaginatedResponse<EmailLog>>;
+  createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
+  emailLogExists(messageId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -269,6 +275,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(demandes.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async getEmailLogs(page: number, limit: number): Promise<PaginatedResponse<EmailLog>> {
+    const offset = (page - 1) * limit;
+
+    const [totalResult] = await db.select({ count: count() }).from(emailLogs);
+    const total = totalResult?.count ?? 0;
+
+    const rows = await db
+      .select()
+      .from(emailLogs)
+      .orderBy(desc(emailLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async createEmailLog(logEntry: InsertEmailLog): Promise<EmailLog> {
+    const [created] = await db.insert(emailLogs).values(logEntry).returning();
+    return created;
+  }
+
+  async emailLogExists(messageId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: emailLogs.id })
+      .from(emailLogs)
+      .where(eq(emailLogs.messageId, messageId))
+      .limit(1);
+    return !!row;
   }
 }
 
