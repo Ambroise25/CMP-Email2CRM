@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import type { BienMatch } from "@shared/schema";
 import { Card } from "@/components/ui/card";
-import { AdresseLink } from "@/components/AdresseLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +106,7 @@ export default function BienSearch() {
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <h3 className="font-medium text-foreground" data-testid="text-best-match-adresse">
-                            <AdresseLink adresse={data.best_match.bien.adresse} codePostal={data.best_match.bien.codePostal} ville={data.best_match.bien.ville} />
+                            {data.best_match.bien.adresse}
                           </h3>
                           <Badge variant="default" data-testid="text-best-match-score">
                             Score: {Math.round(data.best_match.score * 100)}%
@@ -149,7 +148,7 @@ export default function BienSearch() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <h3 className="font-medium text-foreground">
-                                <AdresseLink adresse={match.bien.adresse} codePostal={match.bien.codePostal} ville={match.bien.ville} />
+                                {match.bien.adresse}
                               </h3>
                               {match.bien.complementAdresse && (
                                 <Badge variant="secondary">

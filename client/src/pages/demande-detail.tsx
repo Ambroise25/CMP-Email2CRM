@@ -212,11 +212,15 @@ export default function DemandeDetail() {
             <Link href={`/biens/${demande.bien.id}`}>
               <div className="space-y-2 hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors cursor-pointer">
                 <p className="font-medium text-foreground" data-testid="text-bien-adresse">
-                  <AdresseLink adresse={demande.bien.adresse} codePostal={demande.bien.codePostal} ville={demande.bien.ville} />
+                  {demande.bien.adresse}
                 </p>
                 <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5" />
-                  {demande.bien.codePostal} {demande.bien.ville}
+                  <AdresseLink
+                    adresse={`${demande.bien.adresse} ${demande.bien.codePostal} ${demande.bien.ville}`}
+                    codePostal=""
+                    ville=""
+                  />
                 </p>
               </div>
             </Link>

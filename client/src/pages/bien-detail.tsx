@@ -90,7 +90,7 @@ export default function BienDetail() {
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h1 className="text-xl font-semibold text-foreground" data-testid="text-bien-adresse">
-                  <AdresseLink adresse={bien.adresse} codePostal={bien.codePostal} ville={bien.ville} />
+                  {bien.adresse}
                 </h1>
                 <Badge variant="outline" data-testid="text-bien-id">
                   <Hash className="w-3 h-3 mr-1" />
@@ -112,7 +112,11 @@ export default function BienDetail() {
                 Localisation
               </p>
               <p className="font-medium" data-testid="text-localisation">
-                {bien.codePostal} {bien.ville}
+                <AdresseLink
+                  adresse={`${bien.adresse} ${bien.codePostal} ${bien.ville}`}
+                  codePostal=""
+                  ville=""
+                />
               </p>
             </div>
 
