@@ -256,6 +256,112 @@ export async function registerRoutes(
     }
   });
 
+  const ALLOWED_MIME_TYPES = [
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain", "text/csv",
+    "application/octet-stream",
+  ];
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+  app.get("/api/demandes/:id/documents", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const demande = await storage.getDemandeById(id);
+      if (!demande) {
+        return res.status(404).json({ error: "Demande non trouvee" });
+      }
+
+      const docs = await storage.getDocumentsByDemande(id);
+      const metadata = docs.map(({ data, ...rest }) => ({ ...rest, size: Math.round((data.length * 3) / 4) }));
+      return res.json(metadata);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/documents/:id/download", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const doc = await storage.getDocumentById(id);
+      if (!doc) {
+        return res.status(404).json({ error: "Document non trouve" });
+      }
+
+      const buffer = Buffer.from(doc.data, "base64");
+      res.setHeader("Content-Type", doc.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(doc.nom)}"`);
+      res.setHeader("Content-Length", buffer.length);
+      return res.send(buffer);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/demandes/:id/documents", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const demande = await storage.getDemandeById(id);
+      if (!demande) {
+        return res.status(404).json({ error: "Demande non trouvee" });
+      }
+
+      const { nom, mimeType, data } = req.body;
+      if (!nom || !mimeType || !data) {
+        return res.status(400).json({ error: "Champs nom, mimeType et data requis" });
+      }
+
+      if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+        return res.status(400).json({ error: "Type de fichier non autorisé" });
+      }
+
+      const estimatedBytes = Math.round((data.length * 3) / 4);
+      if (estimatedBytes > MAX_FILE_SIZE_BYTES) {
+        return res.status(413).json({ error: `Fichier trop volumineux (max ${MAX_FILE_SIZE_BYTES / 1024 / 1024} Mo)` });
+      }
+
+      const doc = await storage.createDocument({ demandeId: id, nom, mimeType, data });
+      const { data: _data, ...metadata } = doc;
+      return res.status(201).json({ ...metadata, size: estimatedBytes });
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/documents/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const deleted = await storage.deleteDocument(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Document non trouve" });
+      }
+
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   app.get("/api/emails/logs", async (req, res) => {
     try {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);

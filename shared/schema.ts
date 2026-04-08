@@ -156,6 +156,7 @@ export const emailLogs = pgTable("email_logs", {
   receivedAt: timestamp("received_at").notNull(),
   from: text("from").notNull(),
   subject: text("subject").notNull(),
+  body: text("body"),
   statut: text("statut").notNull().default("traite"),
   demandeId: integer("demande_id").references(() => demandes.id),
   erreur: text("erreur"),
@@ -177,3 +178,22 @@ export type EmailLog = typeof emailLogs.$inferSelect;
 export type EmailLogWithDemande = EmailLog & {
   demande?: DemandeWithRelations | null;
 };
+
+export const documents = pgTable("documents", {
+  id: serial("id").primaryKey(),
+  demandeId: integer("demande_id").notNull().references(() => demandes.id),
+  nom: text("nom").notNull(),
+  mimeType: text("mime_type").notNull(),
+  data: text("data").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_documents_demande_id").on(table.demandeId),
+]);
+
+export const insertDocumentSchema = createInsertSchema(documents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type Document = typeof documents.$inferSelect;

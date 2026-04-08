@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import type { DemandeWithRelations } from "@shared/schema";
+import type { DemandeWithRelations, Document } from "@shared/schema";
 import { etatLabels } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { AdresseLink } from "@/components/AdresseLink";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   ClipboardList,
   Building2,
@@ -23,7 +26,15 @@ import {
   MessageSquare,
   Tag,
   Zap,
+  Paperclip,
+  Upload,
+  Download,
+  Trash2,
+  File,
+  Image,
 } from "lucide-react";
+
+type DocumentMeta = Omit<Document, "data"> & { size: number };
 
 const etatColors: Record<string, string> = {
   nouvelle: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -33,6 +44,188 @@ const etatColors: Record<string, string> = {
   terminee: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   annulee: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
+
+function formatDocDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  } as Intl.DateTimeFormatOptions);
+}
+
+function formatFileSize(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} o`;
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} Ko`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function getFileIcon(mimeType: string) {
+  if (mimeType.startsWith("image/")) return Image;
+  return File;
+}
+
+function DocumentsSection({ demandeId }: { demandeId: number }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const { data: docs = [], isLoading } = useQuery<DocumentMeta[]>({
+    queryKey: ["/api/demandes", demandeId, "documents"],
+    queryFn: () => fetch(`/api/demandes/${demandeId}/documents`).then((r) => r.json()),
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      return new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64 = (reader.result as string).split(",")[1];
+            await apiRequest("POST", `/api/demandes/${demandeId}/documents`, {
+              nom: file.name,
+              mimeType: file.type || "application/octet-stream",
+              data: base64,
+            });
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandes", demandeId, "documents"] });
+      toast({ title: "Document ajouté", description: "Le fichier a été téléversé avec succès." });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible de téléverser le fichier.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (docId: number) => apiRequest("DELETE", `/api/documents/${docId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandes", demandeId, "documents"] });
+      toast({ title: "Document supprimé" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible de supprimer le document.", variant: "destructive" });
+    },
+  });
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadMutation.mutate(file);
+      e.target.value = "";
+    }
+  }
+
+  function handleDownload(doc: DocumentMeta) {
+    const link = document.createElement("a");
+    link.href = `/api/documents/${doc.id}/download`;
+    link.download = doc.nom;
+    link.click();
+  }
+
+  return (
+    <Card className="p-6 mt-4" data-testid="card-documents">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+          <Paperclip className="w-3.5 h-3.5" />
+          Documents
+          {docs.length > 0 && (
+            <Badge variant="secondary" className="ml-1 text-xs normal-case tracking-normal">
+              {docs.length}
+            </Badge>
+          )}
+        </h2>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadMutation.isPending}
+          data-testid="button-upload-document"
+        >
+          <Upload className="w-3.5 h-3.5 mr-1.5" />
+          {uploadMutation.isPending ? "En cours..." : "Ajouter un fichier"}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+          onChange={handleFileChange}
+          data-testid="input-file-upload"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ) : docs.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm" data-testid="text-no-documents">Aucun document joint</p>
+          <p className="text-xs mt-1">Cliquez sur "Ajouter un fichier" pour joindre un PDF, une image, etc.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {docs.map((doc) => {
+            const FileIcon = getFileIcon(doc.mimeType);
+            return (
+              <div
+                key={doc.id}
+                className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
+                data-testid={`row-document-${doc.id}`}
+              >
+                <FileIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-sm font-medium truncate"
+                    data-testid={`text-doc-name-${doc.id}`}
+                  >
+                    {doc.nom}
+                  </p>
+                  <p className="text-xs text-muted-foreground" data-testid={`text-doc-meta-${doc.id}`}>
+                    {doc.mimeType} · {formatFileSize(doc.size)} · {formatDocDate(doc.createdAt as unknown as string)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDownload(doc)}
+                    data-testid={`button-download-doc-${doc.id}`}
+                    title="Télécharger"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteMutation.mutate(doc.id)}
+                    disabled={deleteMutation.isPending}
+                    data-testid={`button-delete-doc-${doc.id}`}
+                    title="Supprimer"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export default function DemandeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -253,6 +446,8 @@ export default function DemandeDetail() {
             </div>
           </Card>
         )}
+
+        <DocumentsSection demandeId={demande.id} />
       </div>
     </div>
   );

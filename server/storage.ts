@@ -13,10 +13,13 @@ import {
   type PaginatedResponse,
   type EmailLog,
   type InsertEmailLog,
+  type Document,
+  type InsertDocument,
   biens,
   gestionnaires,
   demandes,
   emailLogs,
+  documents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, and, count, desc, inArray } from "drizzle-orm";
@@ -82,6 +85,10 @@ export interface IStorage {
   getEmailLogs(page: number, limit: number, statuts?: string[]): Promise<PaginatedResponse<EmailLog>>;
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   emailLogExists(messageId: string): Promise<boolean>;
+  getDocumentsByDemande(demandeId: number): Promise<Document[]>;
+  getDocumentById(id: number): Promise<Document | undefined>;
+  createDocument(doc: InsertDocument): Promise<Document>;
+  deleteDocument(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -320,6 +327,32 @@ export class DatabaseStorage implements IStorage {
       .where(eq(emailLogs.messageId, messageId))
       .limit(1);
     return !!row;
+  }
+
+  async getDocumentsByDemande(demandeId: number): Promise<Document[]> {
+    return await db
+      .select()
+      .from(documents)
+      .where(eq(documents.demandeId, demandeId))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async getDocumentById(id: number): Promise<Document | undefined> {
+    const [doc] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+    return doc || undefined;
+  }
+
+  async createDocument(doc: InsertDocument): Promise<Document> {
+    const [created] = await db.insert(documents).values(doc).returning();
+    return created;
+  }
+
+  async deleteDocument(id: number): Promise<boolean> {
+    const result = await db
+      .delete(documents)
+      .where(eq(documents.id, id))
+      .returning({ id: documents.id });
+    return result.length > 0;
   }
 }
 
