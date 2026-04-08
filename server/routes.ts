@@ -137,7 +137,7 @@ export async function registerRoutes(
     try {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
-      const filters: { bienId?: number; etat?: string; metier?: string } = {};
+      const filters: { bienId?: number; etat?: string; metier?: string; excludeNouvelle?: boolean } = {};
 
       if (req.query.bien_id) {
         filters.bienId = parseInt(req.query.bien_id as string);
@@ -158,6 +158,9 @@ export async function registerRoutes(
           return res.status(400).json({ error: "Metier invalide", metiers_valides: METIERS });
         }
         filters.metier = metier;
+      }
+      if (req.query.exclude_nouvelle === "true") {
+        filters.excludeNouvelle = true;
       }
 
       const result = await storage.getDemandes(page, limit, filters);

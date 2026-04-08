@@ -53,16 +53,16 @@ export default function BiensList() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link href="/">
+              <Button variant="outline" data-testid="button-nouvelles-demandes">
+                <Mail className="w-4 h-4 mr-2" />
+                Nouvelles demandes
+              </Button>
+            </Link>
             <Link href="/demandes">
               <Button variant="outline" data-testid="button-demandes-page">
                 <ClipboardList className="w-4 h-4 mr-2" />
-                Demandes
-              </Button>
-            </Link>
-            <Link href="/emails">
-              <Button variant="outline" data-testid="button-emails-page">
-                <Mail className="w-4 h-4 mr-2" />
-                Emails
+                Suivi des demandes
               </Button>
             </Link>
             <Link href="/biens/search">

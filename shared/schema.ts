@@ -3,7 +3,7 @@ import { pgTable, text, serial, integer, timestamp, index, boolean } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const ETATS = ["nouvelle", "en_cours", "rdv_programme", "terminee", "annulee"] as const;
+export const ETATS = ["nouvelle", "a_contacter", "en_attente_retour", "programmee", "terminee", "annulee"] as const;
 export const METIERS = ["Etancheite", "Plomberie", "Electricite", "Autre"] as const;
 
 export type Etat = typeof ETATS[number];
@@ -11,10 +11,11 @@ export type Metier = typeof METIERS[number];
 
 export const etatLabels: Record<Etat, string> = {
   nouvelle: "Nouvelle",
-  en_cours: "En cours",
-  rdv_programme: "RDV programme",
-  terminee: "Terminee",
-  annulee: "Annulee",
+  a_contacter: "À contacter",
+  en_attente_retour: "En attente de retour",
+  programmee: "Programmée",
+  terminee: "Terminée",
+  annulee: "Annulée",
 };
 
 export const gestionnaires = pgTable("gestionnaires", {

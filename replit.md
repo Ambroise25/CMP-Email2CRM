@@ -45,6 +45,12 @@ API REST pour la gestion de biens immobiliers et demandes d'intervention avec CR
 ### Other
 - `GET /api/gestionnaires` - List all gestionnaires
 
+## Workflow utilisateur
+1. **Page d'accueil `/`** = "Nouvelles demandes" — liste des demandes créées par le parser (etat="nouvelle") avec bouton "Valider" (→ a_contacter) et "Modifier"
+2. **Page `/demandes`** = "Suivi des demandes" — filtres par badge (exclut "nouvelle"), suivi des demandes en cours
+3. **Page `/biens`** = gestion des biens immobiliers
+
 ## Enums
-- **Etats**: nouvelle, en_cours, rdv_programme, terminee, annulee
+- **Etats**: nouvelle, a_contacter, en_attente_retour, programmee, terminee, annulee
+- **Labels**: Nouvelle / À contacter / En attente de retour / Programmée / Terminée / Annulée
 - **Metiers**: Etancheite, Plomberie, Electricite, Autre

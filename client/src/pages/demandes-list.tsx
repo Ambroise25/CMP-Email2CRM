@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import type { DemandeWithRelations, PaginatedResponse } from "@shared/schema";
-import { ETATS, METIERS, etatLabels } from "@shared/schema";
+import { METIERS, etatLabels } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,12 +26,22 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+const SUIVI_ETATS = [
+  { value: "", label: "Toutes" },
+  { value: "a_contacter", label: "À contacter" },
+  { value: "en_attente_retour", label: "En attente de retour" },
+  { value: "programmee", label: "Programmée" },
+  { value: "terminee", label: "Terminée" },
+  { value: "annulee", label: "Annulée" },
+] as const;
+
 const etatColors: Record<string, string> = {
-  nouvelle: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  en_cours: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  rdv_programme: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  a_contacter: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  en_attente_retour: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  programmee: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   terminee: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   annulee: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  nouvelle: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
 };
 
 export default function DemandesList() {
@@ -40,7 +50,7 @@ export default function DemandesList() {
   const [metierFilter, setMetierFilter] = useState<string>("");
   const limit = 20;
 
-  let queryString = `?page=${page}&limit=${limit}`;
+  let queryString = `?page=${page}&limit=${limit}&exclude_nouvelle=true`;
   if (etatFilter) queryString += `&etat=${etatFilter}`;
   if (metierFilter) queryString += `&metier=${metierFilter}`;
 
@@ -48,28 +58,32 @@ export default function DemandesList() {
     queryKey: ["/api/demandes", queryString],
   });
 
-  const handleFilterChange = () => {
+  const handleBadgeFilter = (val: string) => {
+    setEtatFilter(val);
     setPage(1);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-2 mb-1">
               <Link href="/">
-                <Button variant="ghost" size="sm" data-testid="button-back-biens">
+                <Button variant="ghost" size="sm" data-testid="button-back-nouvelles">
                   <ArrowLeft className="w-4 h-4 mr-1" />
-                  Biens
+                  Nouvelles demandes
                 </Button>
               </Link>
             </div>
             <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">
-              Demandes d'intervention
+              Suivi des demandes
             </h1>
             <p className="text-muted-foreground mt-1">
-              {data ? `${data.pagination.total} demande${data.pagination.total > 1 ? "s" : ""}` : "Chargement..."}
+              {data
+                ? `${data.pagination.total} demande${data.pagination.total > 1 ? "s" : ""}`
+                : "Chargement..."}
             </p>
           </div>
           <Link href="/demandes/new">
@@ -80,39 +94,33 @@ export default function DemandesList() {
           </Link>
         </div>
 
-        <div className="flex flex-wrap gap-3 mb-6">
-          <Select
-            value={etatFilter}
-            onValueChange={(val) => {
-              setEtatFilter(val === "all" ? "" : val);
-              handleFilterChange();
-            }}
-          >
-            <SelectTrigger className="w-[180px]" data-testid="select-filter-etat">
-              <SelectValue placeholder="Filtrer par etat" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les etats</SelectItem>
-              {ETATS.map((etat) => (
-                <SelectItem key={etat} value={etat}>
-                  {etatLabels[etat]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {SUIVI_ETATS.map(({ value, label }) => (
+            <Button
+              key={value}
+              variant={etatFilter === value ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleBadgeFilter(value)}
+              data-testid={`badge-filter-${value || "toutes"}`}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
 
+        <div className="mb-6">
           <Select
             value={metierFilter}
             onValueChange={(val) => {
               setMetierFilter(val === "all" ? "" : val);
-              handleFilterChange();
+              setPage(1);
             }}
           >
             <SelectTrigger className="w-[180px]" data-testid="select-filter-metier">
-              <SelectValue placeholder="Filtrer par metier" />
+              <SelectValue placeholder="Tous les métiers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les metiers</SelectItem>
+              <SelectItem value="all">Tous les métiers</SelectItem>
               {METIERS.map((metier) => (
                 <SelectItem key={metier} value={metier}>
                   {metier}
@@ -150,7 +158,10 @@ export default function DemandesList() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <h3 className="font-medium text-foreground truncate" data-testid={`text-objet-${demande.id}`}>
+                        <h3
+                          className="font-medium text-foreground truncate"
+                          data-testid={`text-objet-${demande.id}`}
+                        >
                           {demande.objet}
                         </h3>
                         <Badge
@@ -190,18 +201,14 @@ export default function DemandesList() {
         ) : (
           <Card className="p-12 text-center">
             <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-1" data-testid="text-empty-title">Aucune demande trouvee</h3>
+            <h3 className="text-lg font-medium mb-1" data-testid="text-empty-title">
+              Aucune demande trouvée
+            </h3>
             <p className="text-muted-foreground mb-4">
-              {etatFilter || metierFilter ? "Aucun resultat pour ces filtres." : "Commencez par creer votre premiere demande."}
+              {etatFilter || metierFilter
+                ? "Aucun résultat pour ces filtres."
+                : "Les nouvelles demandes validées apparaîtront ici."}
             </p>
-            {!etatFilter && !metierFilter && (
-              <Link href="/demandes/new">
-                <Button data-testid="button-empty-create">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Creer une demande
-                </Button>
-              </Link>
-            )}
           </Card>
         )}
 
@@ -215,7 +222,7 @@ export default function DemandesList() {
               data-testid="button-prev-page"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Precedent
+              Précédent
             </Button>
             <div className="flex items-center gap-1">
               {Array.from({ length: Math.min(data.pagination.totalPages, 7) }).map((_, i) => {

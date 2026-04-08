@@ -75,7 +75,7 @@ export interface IStorage {
   getGestionnaires(): Promise<Gestionnaire[]>;
   getGestionnaireById(id: number): Promise<Gestionnaire | undefined>;
   createGestionnaire(gestionnaire: InsertGestionnaire): Promise<Gestionnaire>;
-  getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string }): Promise<PaginatedResponse<DemandeWithRelations>>;
+  getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string; excludeNouvelle?: boolean }): Promise<PaginatedResponse<DemandeWithRelations>>;
   getDemandeById(id: number): Promise<DemandeWithRelations | undefined>;
   createDemande(demande: InsertDemande): Promise<Demande>;
   updateDemande(id: number, updates: UpdateDemande): Promise<Demande | undefined>;
@@ -194,7 +194,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string }): Promise<PaginatedResponse<DemandeWithRelations>> {
+  async getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string; excludeNouvelle?: boolean }): Promise<PaginatedResponse<DemandeWithRelations>> {
     const offset = (page - 1) * limit;
 
     const conditions = [];
@@ -206,6 +206,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.metier) {
       conditions.push(sql`${demandes.metier} = ${filters.metier}`);
+    }
+    if (filters?.excludeNouvelle) {
+      conditions.push(sql`${demandes.etat} != 'nouvelle'`);
     }
 
     const whereClause = conditions.length > 0

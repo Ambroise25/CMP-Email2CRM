@@ -16,7 +16,8 @@ import EmailsList from "@/pages/emails-list";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={BiensList} />
+      <Route path="/" component={EmailsList} />
+      <Route path="/biens" component={BiensList} />
       <Route path="/biens/new" component={BienForm} />
       <Route path="/biens/search" component={BienSearch} />
       <Route path="/biens/:id/edit" component={BienForm} />
@@ -25,7 +26,6 @@ function Router() {
       <Route path="/demandes/new" component={DemandeForm} />
       <Route path="/demandes/:id/edit" component={DemandeForm} />
       <Route path="/demandes/:id" component={DemandeDetail} />
-      <Route path="/emails" component={EmailsList} />
       <Route component={NotFound} />
     </Switch>
   );
