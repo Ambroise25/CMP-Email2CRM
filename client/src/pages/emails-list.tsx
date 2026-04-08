@@ -70,7 +70,7 @@ export default function EmailsList() {
 
   const { data, isLoading } = useQuery<PaginatedResponse<EmailLog>>({
     queryKey: ["/api/emails/logs", page],
-    queryFn: () => fetch(`/api/emails/logs?page=${page}&limit=${limit}`).then((r) => r.json()),
+    queryFn: () => fetch(`/api/emails/logs?page=${page}&limit=${limit}&statut=traite,erreur`).then((r) => r.json()),
   });
 
   const { data: status } = useQuery<EmailServiceStatus>({
@@ -117,10 +117,10 @@ export default function EmailsList() {
               <Mail className="h-7 w-7 text-blue-600" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Emails parsés
+                  Emails — Demandes d'intervention
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Suivi des emails traités automatiquement
+                  Emails pertinents traités automatiquement (les autres sont déplacés vers "Autre Emails")
                 </p>
               </div>
             </div>

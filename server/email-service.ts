@@ -8,6 +8,7 @@ const POLL_INTERVAL_MS = parseInt(process.env.EMAIL_POLL_INTERVAL_MS || "300000"
 const IMAP_FOLDER_INBOX = process.env.IMAP_FOLDER || "INBOX";
 const IMAP_FOLDER_ARCHIVE = process.env.IMAP_FOLDER_ARCHIVE || "Email traite";
 const IMAP_FOLDER_ERRORS = process.env.IMAP_FOLDER_ERRORS || "Erreurs";
+const IMAP_FOLDER_AUTRES = process.env.IMAP_FOLDER_AUTRES || "Autre Emails";
 
 const SKIP_SENDERS = [
   "no-reply@accounts.google.com",
@@ -333,7 +334,7 @@ function fetchUnreadEmails(): Promise<RawEmail[]> {
           const sorted = [...uids].sort((a, b) => b - a);
           const slice = sorted.slice(0, 20);
 
-          const fetch = imap.fetch(slice, { bodies: "", markSeen: true });
+          const fetch = imap.fetch(slice, { bodies: "", markSeen: false });
           let pending = slice.length;
 
           fetch.on("message", (msg, seqno) => {
@@ -465,6 +466,39 @@ function moveEmailToImapFolder(uid: number, targetFolder: string): Promise<void>
   });
 }
 
+function markEmailAsSeen(uid: number): Promise<void> {
+  return new Promise((resolve) => {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPassword = process.env.GMAIL_APP_PASSWORD;
+
+    if (!gmailUser || !gmailPassword) {
+      return resolve();
+    }
+
+    const imap = new Imap({
+      ...getImapConfig(),
+      user: gmailUser,
+      password: gmailPassword,
+    });
+
+    imap.once("ready", () => {
+      imap.openBox(IMAP_FOLDER_INBOX, false, (err) => {
+        if (err) {
+          imap.end();
+          return resolve();
+        }
+        imap.addFlags([uid], "\\Seen", () => {
+          imap.end();
+          resolve();
+        });
+      });
+    });
+
+    imap.once("error", () => resolve());
+    imap.connect();
+  });
+}
+
 async function processEmails(): Promise<{ processed: number; errors: number; ignored: number }> {
   if (isProcessing) {
     log("Déjà en cours de traitement, skip", "email-service");
@@ -490,17 +524,8 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
         }
 
         if (shouldSkipEmail(email.from, email.subject)) {
-          log(`Email ignoré (filtre expéditeur/sujet): ${email.subject}`, "email-service");
-          await storage.createEmailLog({
-            messageId: email.messageId,
-            receivedAt: email.date,
-            from: email.from,
-            subject: email.subject,
-            statut: "ignore",
-            demandeId: null,
-            erreur: "Filtré automatiquement (notification système)",
-            rawParsed: null,
-          });
+          log(`Email ignoré (notification système), déplacé vers "${IMAP_FOLDER_AUTRES}": ${email.subject}`, "email-service");
+          await moveEmailToImapFolder(email.uid, IMAP_FOLDER_AUTRES);
           ignored++;
           continue;
         }
@@ -509,21 +534,13 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
         const isIntervention = await isInterventionEmail(email.subject, email.body);
 
         if (!isIntervention) {
-          log(`Email ignoré (pas une demande d'intervention): ${email.subject}`, "email-service");
-          await storage.createEmailLog({
-            messageId: email.messageId,
-            receivedAt: email.date,
-            from: email.from,
-            subject: email.subject,
-            statut: "ignore",
-            demandeId: null,
-            erreur: "Email non pertinent (pas une demande d'intervention)",
-            rawParsed: null,
-          });
+          log(`Email non pertinent, déplacé vers "${IMAP_FOLDER_AUTRES}": ${email.subject}`, "email-service");
+          await moveEmailToImapFolder(email.uid, IMAP_FOLDER_AUTRES);
           ignored++;
           continue;
         }
 
+        await markEmailAsSeen(email.uid);
         log(`Parsing email: "${email.subject}" de ${email.from}`, "email-service");
         const parsed = await parseEmailWithLLM(email.body, email.subject, email.from);
 

@@ -257,7 +257,9 @@ export async function registerRoutes(
     try {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
-      const result = await storage.getEmailLogs(page, limit);
+      const statutParam = req.query.statut as string | undefined;
+      const statuts = statutParam ? statutParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+      const result = await storage.getEmailLogs(page, limit, statuts);
       return res.json(result);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });

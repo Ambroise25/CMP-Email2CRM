@@ -19,7 +19,7 @@ import {
   emailLogs,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, and, count, desc } from "drizzle-orm";
+import { eq, sql, and, count, desc, inArray } from "drizzle-orm";
 
 function normalizeAddress(addr: string): string {
   return addr
@@ -79,7 +79,7 @@ export interface IStorage {
   getDemandeById(id: number): Promise<DemandeWithRelations | undefined>;
   createDemande(demande: InsertDemande): Promise<Demande>;
   updateDemande(id: number, updates: UpdateDemande): Promise<Demande | undefined>;
-  getEmailLogs(page: number, limit: number): Promise<PaginatedResponse<EmailLog>>;
+  getEmailLogs(page: number, limit: number, statuts?: string[]): Promise<PaginatedResponse<EmailLog>>;
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   emailLogExists(messageId: string): Promise<boolean>;
 }
@@ -277,15 +277,19 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async getEmailLogs(page: number, limit: number): Promise<PaginatedResponse<EmailLog>> {
+  async getEmailLogs(page: number, limit: number, statuts?: string[]): Promise<PaginatedResponse<EmailLog>> {
     const offset = (page - 1) * limit;
+    const whereClause = statuts && statuts.length > 0
+      ? inArray(emailLogs.statut, statuts)
+      : sql`1=1`;
 
-    const [totalResult] = await db.select({ count: count() }).from(emailLogs);
+    const [totalResult] = await db.select({ count: count() }).from(emailLogs).where(whereClause);
     const total = totalResult?.count ?? 0;
 
     const rows = await db
       .select()
       .from(emailLogs)
+      .where(whereClause)
       .orderBy(desc(emailLogs.createdAt))
       .limit(limit)
       .offset(offset);
