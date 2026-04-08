@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import type { BienWithGestionnaire } from "@shared/schema";
 import { Card } from "@/components/ui/card";
+import { AdresseLink } from "@/components/AdresseLink";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +90,7 @@ export default function BienDetail() {
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h1 className="text-xl font-semibold text-foreground" data-testid="text-bien-adresse">
-                  {bien.adresse}
+                  <AdresseLink adresse={bien.adresse} codePostal={bien.codePostal} ville={bien.ville} />
                 </h1>
                 <Badge variant="outline" data-testid="text-bien-id">
                   <Hash className="w-3 h-3 mr-1" />

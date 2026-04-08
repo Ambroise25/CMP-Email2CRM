@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdresseLink } from "@/components/AdresseLink";
 import {
   Building2,
   MapPin,
@@ -128,7 +129,7 @@ export default function BiensList() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-medium text-foreground truncate" data-testid={`text-adresse-${bien.id}`}>
-                          {bien.adresse}
+                          <AdresseLink adresse={bien.adresse} codePostal={bien.codePostal} ville={bien.ville} />
                         </h3>
                         {bien.complementAdresse && (
                           <Badge variant="secondary" data-testid={`badge-complement-${bien.id}`}>
