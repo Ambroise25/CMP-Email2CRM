@@ -24,6 +24,7 @@ import {
   Calendar,
   Wrench,
   ArrowLeft,
+  AlertTriangle,
 } from "lucide-react";
 
 const SUIVI_ETATS = [
@@ -170,6 +171,15 @@ export default function DemandesList() {
                         >
                           {etatLabels[demande.etat as keyof typeof etatLabels] || demande.etat}
                         </Badge>
+                        {demande.infoManquantes && (
+                          <Badge
+                            className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                            data-testid={`badge-info-manquantes-${demande.id}`}
+                          >
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Infos manquantes
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">

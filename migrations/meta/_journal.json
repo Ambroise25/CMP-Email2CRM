@@ -8,6 +8,20 @@
       "when": 1776187403319,
       "tag": "0000_kind_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776190650981,
+      "tag": "0001_acoustic_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776190800000,
+      "tag": "0002_demandes_info_manquantes",
+      "breakpoints": true
     }
   ]
 }

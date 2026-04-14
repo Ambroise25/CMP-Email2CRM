@@ -32,6 +32,7 @@ import {
   Trash2,
   File,
   Image,
+  AlertTriangle,
 } from "lucide-react";
 
 type DocumentMeta = Omit<Document, "data"> & { size: number };
@@ -289,6 +290,21 @@ export default function DemandeDetail() {
             </Button>
           </Link>
         </div>
+
+        {demande.infoManquantes && (
+          <div
+            className="flex items-start gap-3 p-4 mb-4 rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200"
+            data-testid="alert-info-manquantes"
+          >
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5 text-orange-500" />
+            <div>
+              <p className="font-semibold text-sm">Informations manquantes</p>
+              <p className="text-sm mt-0.5">
+                Les champs suivants sont à compléter : <span className="font-medium">{demande.champsManquants}</span>
+              </p>
+            </div>
+          </div>
+        )}
 
         <Card className="p-6" data-testid="card-demande-detail">
           <div className="flex items-start gap-4 mb-6">

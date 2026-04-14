@@ -473,6 +473,15 @@ export default function EmailsList() {
                         <Badge variant="outline" data-testid={`badge-id-${demande.id}`}>
                           #{demande.id}
                         </Badge>
+                        {demande.infoManquantes && (
+                          <Badge
+                            className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                            data-testid={`badge-info-manquantes-${demande.id}`}
+                          >
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Infos manquantes
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">

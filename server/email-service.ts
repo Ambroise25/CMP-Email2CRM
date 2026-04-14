@@ -571,32 +571,31 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
         const contacts = parsed.contacts || [];
         const codesAcces = parsed.codes_acces;
 
-        if (!adresse || !codePostal || !metier || !objet) {
+        const champsManquantsList: string[] = [];
+        if (!adresse) champsManquantsList.push("adresse");
+        if (!codePostal) champsManquantsList.push("code postal");
+        if (!metier) champsManquantsList.push("métier");
+        if (!objet) champsManquantsList.push("objet");
+
+        const infoManquantes = champsManquantsList.length > 0;
+
+        if (infoManquantes) {
           log(
-            `Données insuffisantes (adresse: ${adresse}, metier: ${metier}, objet: ${objet})`,
+            `Données partielles (manquants: ${champsManquantsList.join(", ")}) — création de la demande avec valeurs de repli`,
             "email-service"
           );
-          await storage.createEmailLog({
-            messageId: email.messageId,
-            receivedAt: email.date,
-            from: email.from,
-            subject: email.subject,
-            body: email.body || null,
-            statut: "erreur",
-            demandeId: null,
-            erreur: `Données insuffisantes: adresse="${adresse ?? "?"}", métier="${metier ?? "?"}",  objet="${objet ?? "?"}"`,
-            rawParsed: JSON.stringify(parsed),
-          });
-          await moveEmailToImapFolder(email.uid, IMAP_FOLDER_ERRORS);
-          errors++;
-          continue;
         }
+
+        const adresseEffective = adresse || "À compléter";
+        const codePostalEffectif = codePostal || "À compléter";
+        const metierEffectif = metier || "Autre";
+        const objetEffectif = objet || "À compléter";
 
         let demandeId: number | null = null;
         let createErreur: string | null = null;
 
         try {
-          const searchResult = await storage.searchBiens(adresse, codePostal);
+          const searchResult = await storage.searchBiens(adresseEffective, codePostalEffectif);
           const bestMatch = searchResult.best_match;
 
           let bienId: number | null = null;
@@ -608,8 +607,8 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             log(`Bien trouvé: ID=${bienId} (score=${bestMatch.score})`, "email-service");
           } else {
             const newBien = await storage.createBien({
-              adresse,
-              codePostal,
+              adresse: adresseEffective,
+              codePostal: codePostalEffectif,
               ville: parsed.bien?.ville || "",
               gestionnaireId: null,
               information: null,
@@ -624,8 +623,8 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             throw new Error("Impossible de déterminer le bien");
           }
 
-          const metierValue: ValidMetier = VALID_METIERS.includes(metier as ValidMetier)
-            ? (metier as ValidMetier)
+          const metierValue: ValidMetier = VALID_METIERS.includes(metierEffectif as ValidMetier)
+            ? (metierEffectif as ValidMetier)
             : "Autre";
 
           const contactsText = contacts
@@ -644,7 +643,7 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
           const demande = await storage.createDemande({
             bienId,
             gestionnaireId,
-            objet: objet.slice(0, 200),
+            objet: objetEffectif.slice(0, 200),
             detail: parsed.demande?.detail || email.body.slice(0, 500) || null,
             metier: metierValue,
             etat: "nouvelle",
@@ -652,6 +651,8 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             refSyndic: parsed.demande?.ref_syndic || null,
             commentaire: commentaireParts.join("\n"),
             travauxEnerpur: false,
+            infoManquantes,
+            champsManquants: infoManquantes ? champsManquantsList.join(", ") : null,
           });
           demandeId = demande.id;
           log(`Demande créée: ID=${demandeId}`, "email-service");

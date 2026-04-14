@@ -112,6 +112,8 @@ export const demandes = pgTable("demandes", {
   dateDemandeClient: timestamp("date_demande_client").notNull(),
   refSyndic: text("ref_syndic"),
   travauxEnerpur: boolean("travaux_enerpur").default(false),
+  infoManquantes: boolean("info_manquantes").default(false),
+  champsManquants: text("champs_manquants"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
