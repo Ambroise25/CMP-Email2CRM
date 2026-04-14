@@ -15,14 +15,18 @@ import {
   type InsertEmailLog,
   type Document,
   type InsertDocument,
+  type Contact,
+  type InsertContact,
+  type ContactWithDemande,
   biens,
   gestionnaires,
   demandes,
   emailLogs,
   documents,
+  contacts,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, and, count, desc, inArray } from "drizzle-orm";
+import { eq, sql, and, count, desc, inArray, or, ilike } from "drizzle-orm";
 
 function normalizeAddress(addr: string): string {
   return addr
@@ -89,6 +93,8 @@ export interface IStorage {
   getDocumentById(id: number): Promise<Document | undefined>;
   createDocument(doc: InsertDocument): Promise<Document>;
   deleteDocument(id: number): Promise<boolean>;
+  getContacts(page: number, limit: number, qualite?: string, search?: string): Promise<PaginatedResponse<ContactWithDemande>>;
+  createContacts(contactList: InsertContact[]): Promise<Contact[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -353,6 +359,59 @@ export class DatabaseStorage implements IStorage {
       .where(eq(documents.id, id))
       .returning({ id: documents.id });
     return result.length > 0;
+  }
+
+  async getContacts(page: number, limit: number, qualite?: string, search?: string): Promise<PaginatedResponse<ContactWithDemande>> {
+    const offset = (page - 1) * limit;
+
+    const conditions: ReturnType<typeof sql>[] = [];
+    if (qualite) {
+      conditions.push(sql`${contacts.qualite} = ${qualite}`);
+    }
+    if (search) {
+      conditions.push(sql`(${contacts.nom} ILIKE ${'%' + search + '%'} OR ${contacts.telephone} ILIKE ${'%' + search + '%'})`);
+    }
+
+    const whereClause = conditions.length > 0
+      ? sql`${sql.join(conditions, sql` AND `)}`
+      : sql`1=1`;
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(contacts)
+      .where(whereClause);
+
+    const total = totalResult?.count ?? 0;
+
+    const rows = await db
+      .select()
+      .from(contacts)
+      .leftJoin(demandes, eq(contacts.demandeId, demandes.id))
+      .where(whereClause)
+      .orderBy(desc(contacts.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const data: ContactWithDemande[] = rows.map((row) => ({
+      ...row.contacts,
+      demande: row.demandes || null,
+    }));
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async createContacts(contactList: InsertContact[]): Promise<Contact[]> {
+    if (contactList.length === 0) return [];
+    const created = await db.insert(contacts).values(contactList).returning();
+    return created;
   }
 }
 

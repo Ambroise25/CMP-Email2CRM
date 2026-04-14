@@ -36,6 +36,7 @@ import {
   CheckCircle,
   XCircle,
   MinusCircle,
+  Users,
 } from "lucide-react";
 
 interface EmailServiceStatus {
@@ -415,6 +416,12 @@ export default function EmailsList() {
               <Button variant="ghost" size="sm" data-testid="link-biens">
                 <Building2 className="w-4 h-4 mr-2" />
                 Biens
+              </Button>
+            </Link>
+            <Link href="/contacts">
+              <Button variant="ghost" size="sm" data-testid="link-contacts">
+                <Users className="w-4 h-4 mr-2" />
+                Contacts
               </Button>
             </Link>
           </div>

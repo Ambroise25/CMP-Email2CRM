@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, ETATS, METIERS } from "@shared/schema";
+import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, ETATS, METIERS, CONTACT_QUALITES } from "@shared/schema";
 import { ZodError } from "zod";
 import { emailServiceState, triggerManualSync } from "./email-service";
 
@@ -357,6 +357,24 @@ export async function registerRoutes(
       }
 
       return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/contacts", async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+      const qualiteParam = req.query.qualite as string | undefined;
+      const search = (req.query.search as string) || undefined;
+
+      if (qualiteParam && !CONTACT_QUALITES.includes(qualiteParam as typeof CONTACT_QUALITES[number])) {
+        return res.status(400).json({ error: "Qualité invalide", qualites_valides: CONTACT_QUALITES });
+      }
+
+      const result = await storage.getContacts(page, limit, qualiteParam || undefined, search);
+      return res.json(result);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });
     }

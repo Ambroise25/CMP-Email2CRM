@@ -115,7 +115,7 @@ export const demandes = pgTable("demandes", {
   index("idx_demandes_created_at").on(table.createdAt),
 ]);
 
-export const demandesRelations = relations(demandes, ({ one }) => ({
+export const demandesRelations = relations(demandes, ({ one, many }) => ({
   bien: one(biens, {
     fields: [demandes.bienId],
     references: [biens.id],
@@ -124,6 +124,7 @@ export const demandesRelations = relations(demandes, ({ one }) => ({
     fields: [demandes.gestionnaireId],
     references: [gestionnaires.id],
   }),
+  contacts: many(contacts),
 }));
 
 export const insertDemandeSchema = createInsertSchema(demandes).omit({
@@ -177,6 +178,50 @@ export type EmailLog = typeof emailLogs.$inferSelect;
 
 export type EmailLogWithDemande = EmailLog & {
   demande?: DemandeWithRelations | null;
+};
+
+export const CONTACT_QUALITES = ["gestionnaire", "proprietaire", "locataire", "conseil_syndical", "gardien", "autre"] as const;
+export type ContactQualite = typeof CONTACT_QUALITES[number];
+
+export const contactQualiteLabels: Record<ContactQualite, string> = {
+  gestionnaire: "Gestionnaire (syndic)",
+  proprietaire: "Propriétaire",
+  locataire: "Locataire occupant",
+  conseil_syndical: "Membre du conseil syndical",
+  gardien: "Gardien",
+  autre: "Autre",
+};
+
+export const contacts = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  demandeId: integer("demande_id").notNull().references(() => demandes.id),
+  nom: text("nom"),
+  telephone: text("telephone"),
+  email: text("email"),
+  qualite: text("qualite").notNull().default("autre"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_contacts_demande_id").on(table.demandeId),
+  index("idx_contacts_qualite").on(table.qualite),
+]);
+
+export const contactsRelations = relations(contacts, ({ one }) => ({
+  demande: one(demandes, {
+    fields: [contacts.demandeId],
+    references: [demandes.id],
+  }),
+}));
+
+export const insertContactSchema = createInsertSchema(contacts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertContact = z.infer<typeof insertContactSchema>;
+export type Contact = typeof contacts.$inferSelect;
+
+export type ContactWithDemande = Contact & {
+  demande?: Demande | null;
 };
 
 export const documents = pgTable("documents", {

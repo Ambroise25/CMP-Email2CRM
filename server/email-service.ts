@@ -2,6 +2,7 @@ import Imap from "imap";
 import { simpleParser, type ParsedMail } from "mailparser";
 import OpenAI from "openai";
 import { storage } from "./storage";
+import { CONTACT_QUALITES } from "@shared/schema";
 import { log } from "./index";
 
 const POLL_INTERVAL_MS = parseInt(process.env.EMAIL_POLL_INTERVAL_MS || "300000", 10);
@@ -99,7 +100,7 @@ Extrait TOUTES les infos du corps de l'email ET des pieces jointes. Reponds avec
 {
   "bien": {"adresse": "...", "code_postal": "...", "ville": "...", "nom_copropriete": "..."},
   "demande": {"objet": "...", "detail": "...", "metier": "Etancheite|Plomberie|Electricite|Autre", "urgence": "Urgent|Normal|Faible", "ref_syndic": "..."},
-  "contacts": [{"nom": "...", "telephone": "...", "email": "...", "qualite": "gardien|proprietaire|locataire|gestionnaire|occupant"}],
+  "contacts": [{"nom": "...", "telephone": "...", "email": "...", "qualite": "gardien|proprietaire|locataire|gestionnaire|conseil_syndical|autre"}],
   "codes_acces": "Digicode: ..., Interphone: ...",
   "syndic": "...",
   "gestionnaire": "...",
@@ -109,6 +110,7 @@ Extrait TOUTES les infos du corps de l'email ET des pieces jointes. Reponds avec
 IMPORTANT:
 - Cherche les contacts (noms, telephones) dans tout le contenu.
 - Le syndic n'est JAMAIS une entreprise de travaux (etancheite, plomberie, etc.)
+- Pour qualite: "gestionnaire" = syndic/gestionnaire immobilier, "conseil_syndical" = membre du conseil syndical de la copropriété, "proprietaire" = propriétaire du lot, "locataire" = locataire occupant, "gardien" = gardien/concierge.
 - Utilise null si absent. Reponds avec un JSON valide uniquement, sans markdown.`;
 
 const VALID_METIERS = ["Etancheite", "Plomberie", "Electricite", "Autre"] as const;
@@ -661,6 +663,22 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
           });
           demandeId = demande.id;
           log(`Demande créée: ID=${demandeId}`, "email-service");
+
+          const contactsToSave = contacts
+            .filter((c) => c.nom || c.telephone || c.email)
+            .map((c) => ({
+              demandeId: demande.id,
+              nom: c.nom || null,
+              telephone: c.telephone || null,
+              email: c.email || null,
+              qualite: CONTACT_QUALITES.includes(c.qualite as typeof CONTACT_QUALITES[number])
+                ? c.qualite as string
+                : "autre",
+            }));
+          if (contactsToSave.length > 0) {
+            await storage.createContacts(contactsToSave);
+            log(`${contactsToSave.length} contact(s) enregistré(s) pour demande ID=${demandeId}`, "email-service");
+          }
 
           await moveEmailToImapFolder(email.uid, IMAP_FOLDER_ARCHIVE);
         } catch (demandeErr) {
