@@ -4,6 +4,7 @@
 API REST pour la gestion de biens immobiliers et demandes d'intervention avec CRUD complet, pagination, filtres avances, et recherche intelligente par adresse avec scoring de similarite.
 
 ## Recent Changes
+- 2026-04-14: Gestionnaires management page — Full CRUD for gestionnaires (POST/PUT/DELETE routes), reassignment flow on delete, nullable gestionnaireId in biens/demandes, email parser no longer forces gestionnaire #1 (creates bien without gestionnaire when none identified)
 - 2026-04-04: Email parser integrated — Gmail IMAP polling, Mistral AI parsing via OpenRouter (ministral-8b-2512), LLM classification step (OUI/NON), automatic bien/demande creation, IMAP archiving to "Email traite"/"Erreurs" folders, `/emails` UI page
 - 2026-03-03: US002 - Added CRUD for demandes (intervention requests) with enums for etats/metiers, filters, and frontend pages
 - 2026-02-20: Initial implementation - CRUD API for biens, search with similarity scoring, PostgreSQL database with seed data
@@ -42,8 +43,12 @@ API REST pour la gestion de biens immobiliers et demandes d'intervention avec CR
 - `POST /api/demandes` - Create demande (validates bien_id exists, enum values)
 - `PUT /api/demandes/:id` - Update demande (partial update)
 
-### Other
+### Gestionnaires
 - `GET /api/gestionnaires` - List all gestionnaires
+- `POST /api/gestionnaires` - Create gestionnaire
+- `PUT /api/gestionnaires/:id` - Update gestionnaire (nom, email, telephone)
+- `DELETE /api/gestionnaires/:id` - Delete gestionnaire (body: { reassignTo?: number } to reassign biens)
+- `GET /api/gestionnaires/:id/biens-count` - Count biens attached to gestionnaire
 
 ## Workflow utilisateur
 1. **Page d'accueil `/`** = "Nouvelles demandes" — liste des demandes créées par le parser (etat="nouvelle") avec bouton "Valider" (→ a_contacter) et "Modifier"

@@ -33,7 +33,12 @@ export const insertGestionnaireSchema = createInsertSchema(gestionnaires).omit({
   id: true,
 });
 
+export const updateGestionnaireSchema = insertGestionnaireSchema.partial().extend({
+  nom: z.string().min(1, "Le nom est requis"),
+});
+
 export type InsertGestionnaire = z.infer<typeof insertGestionnaireSchema>;
+export type UpdateGestionnaire = z.infer<typeof updateGestionnaireSchema>;
 export type Gestionnaire = typeof gestionnaires.$inferSelect;
 
 export const biens = pgTable("biens", {
@@ -42,7 +47,7 @@ export const biens = pgTable("biens", {
   complementAdresse: text("complement_adresse"),
   codePostal: text("code_postal").notNull(),
   ville: text("ville").notNull(),
-  gestionnaireId: integer("gestionnaire_id").notNull().references(() => gestionnaires.id),
+  gestionnaireId: integer("gestionnaire_id").references(() => gestionnaires.id),
   information: text("information"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -77,7 +82,7 @@ export type UpdateBien = z.infer<typeof updateBienSchema>;
 export type Bien = typeof biens.$inferSelect;
 
 export type BienWithGestionnaire = Bien & {
-  gestionnaire: Gestionnaire;
+  gestionnaire: Gestionnaire | null;
 };
 
 export type BienMatch = {
@@ -103,7 +108,7 @@ export const demandes = pgTable("demandes", {
   metier: text("metier").notNull(),
   detail: text("detail"),
   commentaire: text("commentaire"),
-  gestionnaireId: integer("gestionnaire_id").notNull().references(() => gestionnaires.id),
+  gestionnaireId: integer("gestionnaire_id").references(() => gestionnaires.id),
   dateDemandeClient: timestamp("date_demande_client").notNull(),
   refSyndic: text("ref_syndic"),
   travauxEnerpur: boolean("travaux_enerpur").default(false),
@@ -145,7 +150,7 @@ export type Demande = typeof demandes.$inferSelect;
 
 export type DemandeWithRelations = Demande & {
   bien: Bien;
-  gestionnaire: Gestionnaire;
+  gestionnaire: Gestionnaire | null;
 };
 
 export const EMAIL_STATUTS = ["traite", "erreur", "ignore"] as const;

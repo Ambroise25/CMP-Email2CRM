@@ -68,7 +68,7 @@ export default function BienForm() {
       complementAdresse: bien.complementAdresse || "",
       codePostal: bien.codePostal,
       ville: bien.ville,
-      gestionnaireId: bien.gestionnaireId,
+      gestionnaireId: bien.gestionnaireId ?? 0,
       information: bien.information || "",
     } : undefined,
   });

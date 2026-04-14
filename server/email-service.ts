@@ -607,29 +607,21 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             gestionnaireId = bestMatch.bien.gestionnaire?.id || null;
             log(`Bien trouvé: ID=${bienId} (score=${bestMatch.score})`, "email-service");
           } else {
-            const gestionnaires = await storage.getGestionnaires();
-            const defaultGestionnaire = gestionnaires[0];
-
-            if (!defaultGestionnaire) {
-              throw new Error("Aucun gestionnaire disponible pour créer le bien");
-            }
-
-            gestionnaireId = defaultGestionnaire.id;
-
             const newBien = await storage.createBien({
               adresse,
               codePostal,
               ville: parsed.bien?.ville || "",
-              gestionnaireId: defaultGestionnaire.id,
+              gestionnaireId: null,
               information: null,
               complementAdresse: null,
             });
             bienId = newBien.id;
-            log(`Nouveau bien créé: ID=${bienId}`, "email-service");
+            gestionnaireId = null;
+            log(`Nouveau bien créé sans gestionnaire: ID=${bienId}`, "email-service");
           }
 
-          if (!bienId || !gestionnaireId) {
-            throw new Error("Impossible de déterminer bien ou gestionnaire");
+          if (!bienId) {
+            throw new Error("Impossible de déterminer le bien");
           }
 
           const metierValue: ValidMetier = VALID_METIERS.includes(metier as ValidMetier)

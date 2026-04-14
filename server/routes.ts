@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, ETATS, METIERS, CONTACT_QUALITES } from "@shared/schema";
+import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, insertGestionnaireSchema, updateGestionnaireSchema, ETATS, METIERS, CONTACT_QUALITES } from "@shared/schema";
 import { ZodError } from "zod";
 import { emailServiceState, triggerManualSync } from "./email-service";
 
@@ -72,12 +72,20 @@ export async function registerRoutes(
         });
       }
 
-      const gestionnaire = await storage.getGestionnaireById(parsed.data.gestionnaireId);
-      if (!gestionnaire) {
-        return res.status(400).json({
-          error: "Gestionnaire non trouve",
-          details: { gestionnaireId: ["Le gestionnaire specifie n'existe pas"] },
-        });
+      if (parsed.data.gestionnaireId != null) {
+        if (parsed.data.gestionnaireId <= 0) {
+          return res.status(400).json({
+            error: "Donnees invalides",
+            details: { gestionnaireId: ["L'identifiant du gestionnaire doit etre positif"] },
+          });
+        }
+        const gestionnaire = await storage.getGestionnaireById(parsed.data.gestionnaireId);
+        if (!gestionnaire) {
+          return res.status(400).json({
+            error: "Gestionnaire non trouve",
+            details: { gestionnaireId: ["Le gestionnaire specifie n'existe pas"] },
+          });
+        }
       }
 
       const bien = await storage.createBien(parsed.data);
@@ -107,7 +115,13 @@ export async function registerRoutes(
         });
       }
 
-      if (parsed.data.gestionnaireId) {
+      if (parsed.data.gestionnaireId != null) {
+        if (parsed.data.gestionnaireId <= 0) {
+          return res.status(400).json({
+            error: "Donnees invalides",
+            details: { gestionnaireId: ["L'identifiant du gestionnaire doit etre positif"] },
+          });
+        }
         const gestionnaire = await storage.getGestionnaireById(parsed.data.gestionnaireId);
         if (!gestionnaire) {
           return res.status(400).json({
@@ -128,6 +142,108 @@ export async function registerRoutes(
     try {
       const list = await storage.getGestionnaires();
       return res.json(list);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/gestionnaires", async (req, res) => {
+    try {
+      const parsed = insertGestionnaireSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: "Donnees invalides",
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const gestionnaire = await storage.createGestionnaire(parsed.data);
+      return res.status(201).json(gestionnaire);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.put("/api/gestionnaires/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const existing = await storage.getGestionnaireById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Gestionnaire non trouve" });
+      }
+
+      const parsed = updateGestionnaireSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: "Donnees invalides",
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const updated = await storage.updateGestionnaire(id, parsed.data);
+      return res.json(updated);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/gestionnaires/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const existing = await storage.getGestionnaireById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Gestionnaire non trouve" });
+      }
+
+      const bienCount = await storage.countBiensByGestionnaire(id);
+
+      const reassignTo = req.body?.reassignTo !== undefined && req.body?.reassignTo !== null
+        ? parseInt(req.body.reassignTo)
+        : undefined;
+
+      if (bienCount > 0 && reassignTo === undefined) {
+        return res.status(400).json({
+          error: "Ce gestionnaire a des biens rattaches. Fournissez reassignTo pour les transferer.",
+          bienCount,
+        });
+      }
+
+      if (reassignTo !== undefined) {
+        if (isNaN(reassignTo)) {
+          return res.status(400).json({ error: "reassignTo invalide" });
+        }
+        if (reassignTo === id) {
+          return res.status(400).json({ error: "reassignTo ne peut pas etre le meme gestionnaire" });
+        }
+        const target = await storage.getGestionnaireById(reassignTo);
+        if (!target) {
+          return res.status(400).json({ error: "Gestionnaire de reassignation non trouve" });
+        }
+      }
+
+      const result = await storage.deleteGestionnaire(id, reassignTo);
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/gestionnaires/:id/biens-count", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+      const count = await storage.countBiensByGestionnaire(id);
+      return res.json({ count });
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });
     }
@@ -203,9 +319,14 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Bien non trouve" });
       }
 
-      const gestionnaire = await storage.getGestionnaireById(parsed.data.gestionnaireId);
-      if (!gestionnaire) {
-        return res.status(400).json({ error: "Gestionnaire non trouve" });
+      if (parsed.data.gestionnaireId != null) {
+        if (parsed.data.gestionnaireId <= 0) {
+          return res.status(400).json({ error: "Identifiant gestionnaire invalide" });
+        }
+        const gestionnaire = await storage.getGestionnaireById(parsed.data.gestionnaireId);
+        if (!gestionnaire) {
+          return res.status(400).json({ error: "Gestionnaire non trouve" });
+        }
       }
 
       const demande = await storage.createDemande(parsed.data);
@@ -242,7 +363,10 @@ export async function registerRoutes(
         }
       }
 
-      if (parsed.data.gestionnaireId) {
+      if (parsed.data.gestionnaireId != null) {
+        if (parsed.data.gestionnaireId <= 0) {
+          return res.status(400).json({ error: "Identifiant gestionnaire invalide" });
+        }
         const gestionnaire = await storage.getGestionnaireById(parsed.data.gestionnaireId);
         if (!gestionnaire) {
           return res.status(400).json({ error: "Gestionnaire non trouve" });

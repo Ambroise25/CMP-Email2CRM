@@ -13,6 +13,7 @@ import DemandeDetail from "@/pages/demande-detail";
 import DemandeForm from "@/pages/demande-form";
 import EmailsList from "@/pages/emails-list";
 import ContactsList from "@/pages/contacts-list";
+import GestionnairesList from "@/pages/gestionnaires-list";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/demandes/:id/edit" component={DemandeForm} />
       <Route path="/demandes/:id" component={DemandeDetail} />
       <Route path="/contacts" component={ContactsList} />
+      <Route path="/gestionnaires" component={GestionnairesList} />
       <Route component={NotFound} />
     </Switch>
   );

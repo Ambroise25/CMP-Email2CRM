@@ -86,7 +86,7 @@ export default function DemandeForm() {
     values: isEdit && demande ? {
       objet: demande.objet,
       bienId: demande.bienId,
-      gestionnaireId: demande.gestionnaireId,
+      gestionnaireId: demande.gestionnaireId ?? 0,
       metier: demande.metier as typeof METIERS[number],
       etat: demande.etat as typeof ETATS[number],
       detail: demande.detail || "",

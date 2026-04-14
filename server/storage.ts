@@ -6,6 +6,7 @@ import {
   type BienMatch,
   type Gestionnaire,
   type InsertGestionnaire,
+  type UpdateGestionnaire,
   type Demande,
   type InsertDemande,
   type UpdateDemande,
@@ -26,7 +27,7 @@ import {
   contacts,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql, and, count, desc, inArray, or, ilike } from "drizzle-orm";
+import { eq, sql, and, count, desc, inArray, or, ilike, isNull } from "drizzle-orm";
 
 function normalizeAddress(addr: string): string {
   return addr
@@ -82,6 +83,9 @@ export interface IStorage {
   getGestionnaires(): Promise<Gestionnaire[]>;
   getGestionnaireById(id: number): Promise<Gestionnaire | undefined>;
   createGestionnaire(gestionnaire: InsertGestionnaire): Promise<Gestionnaire>;
+  updateGestionnaire(id: number, updates: UpdateGestionnaire): Promise<Gestionnaire | undefined>;
+  deleteGestionnaire(id: number, reassignTo?: number): Promise<{ success: boolean; bienCount: number }>;
+  countBiensByGestionnaire(gestionnaireId: number): Promise<number>;
   getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string; excludeNouvelle?: boolean }): Promise<PaginatedResponse<DemandeWithRelations>>;
   getDemandeById(id: number): Promise<DemandeWithRelations | undefined>;
   createDemande(demande: InsertDemande): Promise<Demande>;
@@ -123,7 +127,7 @@ export class DatabaseStorage implements IStorage {
 
     const data: BienWithGestionnaire[] = rows.map((row) => ({
       ...row.biens,
-      gestionnaire: row.gestionnaires!,
+      gestionnaire: row.gestionnaires || null,
     }));
 
     return {
@@ -148,7 +152,7 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...rows[0].biens,
-      gestionnaire: rows[0].gestionnaires!,
+      gestionnaire: rows[0].gestionnaires || null,
     };
   }
 
@@ -179,7 +183,7 @@ export class DatabaseStorage implements IStorage {
       const score = calculateSimilarity(adresse, row.biens.adresse);
       if (score > 0.3) {
         matches.push({
-          bien: { ...row.biens, gestionnaire: row.gestionnaires! },
+          bien: { ...row.biens, gestionnaire: row.gestionnaires || null },
           score: Math.round(score * 100) / 100,
         });
       }
@@ -205,6 +209,42 @@ export class DatabaseStorage implements IStorage {
   async createGestionnaire(gestionnaire: InsertGestionnaire): Promise<Gestionnaire> {
     const [created] = await db.insert(gestionnaires).values(gestionnaire).returning();
     return created;
+  }
+
+  async updateGestionnaire(id: number, updates: UpdateGestionnaire): Promise<Gestionnaire | undefined> {
+    const [updated] = await db
+      .update(gestionnaires)
+      .set(updates)
+      .where(eq(gestionnaires.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async countBiensByGestionnaire(gestionnaireId: number): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(biens)
+      .where(eq(biens.gestionnaireId, gestionnaireId));
+    return result?.count ?? 0;
+  }
+
+  async deleteGestionnaire(id: number, reassignTo?: number): Promise<{ success: boolean; bienCount: number }> {
+    const bienCount = await this.countBiensByGestionnaire(id);
+
+    if (bienCount > 0) {
+      if (reassignTo !== undefined) {
+        await db.update(biens).set({ gestionnaireId: reassignTo }).where(eq(biens.gestionnaireId, id));
+        await db.update(demandes).set({ gestionnaireId: reassignTo }).where(eq(demandes.gestionnaireId, id));
+      } else {
+        await db.update(biens).set({ gestionnaireId: null }).where(eq(biens.gestionnaireId, id));
+        await db.update(demandes).set({ gestionnaireId: null }).where(eq(demandes.gestionnaireId, id));
+      }
+    } else {
+      await db.update(demandes).set({ gestionnaireId: null }).where(eq(demandes.gestionnaireId, id));
+    }
+
+    await db.delete(gestionnaires).where(eq(gestionnaires.id, id));
+    return { success: true, bienCount };
   }
 
   async getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string; excludeNouvelle?: boolean }): Promise<PaginatedResponse<DemandeWithRelations>> {
@@ -248,7 +288,7 @@ export class DatabaseStorage implements IStorage {
     const data: DemandeWithRelations[] = rows.map((row) => ({
       ...row.demandes,
       bien: row.biens!,
-      gestionnaire: row.gestionnaires!,
+      gestionnaire: row.gestionnaires || null,
     }));
 
     return {
@@ -275,7 +315,7 @@ export class DatabaseStorage implements IStorage {
     return {
       ...rows[0].demandes,
       bien: rows[0].biens!,
-      gestionnaire: rows[0].gestionnaires!,
+      gestionnaire: rows[0].gestionnaires || null,
     };
   }
 
