@@ -6,3 +6,9 @@ id = "ThqM-CkOneqgdUN1LS8bG"
 uri = "file://README.md"
 type = "text"
 title = "README.md — CRM API"
+
+[[outputs]]
+id = "DJymsLd3oBNJd-s3yFYD4"
+uri = "file://docs/comparatif-replit-lovable.md"
+type = "text"
+title = "Comparatif Replit ↔ Lovable"
