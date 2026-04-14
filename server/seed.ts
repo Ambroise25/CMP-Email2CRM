@@ -7,7 +7,7 @@ export async function seedDatabase() {
   if (gestionnaireCount.count > 0) return;
 
   const insertedGestionnaires = await db.insert(gestionnaires).values([
-    { nom: "Cabinet Durand Immobilier", email: "contact@durand-immo.fr", telephone: "01 42 55 78 90" },
+    { nom: "Cabinet Dubreuil Immobilier", email: "contact@dubreuil-immo.fr", telephone: "01 42 55 78 90" },
     { nom: "SCI Les Terrasses", email: "gestion@lesterrasses.fr", telephone: "01 39 22 14 56" },
     { nom: "Foncia Paris Est", email: "paris.est@foncia.fr", telephone: "01 48 77 33 21" },
     { nom: "Nexity Gestion", email: "gestion@nexity.fr", telephone: "01 55 89 44 10" },
