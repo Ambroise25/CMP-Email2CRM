@@ -306,6 +306,7 @@ export class DatabaseStorage implements IStorage {
       ...row.demandes,
       bien: row.biens!,
       gestionnaire: row.gestionnaires || null,
+      contacts: [],
     }));
 
     return {
@@ -329,10 +330,17 @@ export class DatabaseStorage implements IStorage {
 
     if (rows.length === 0) return undefined;
 
+    const demandeContacts = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.demandeId, id))
+      .orderBy(contacts.id);
+
     return {
       ...rows[0].demandes,
       bien: rows[0].biens!,
       gestionnaire: rows[0].gestionnaires || null,
+      contacts: demandeContacts,
     };
   }
 

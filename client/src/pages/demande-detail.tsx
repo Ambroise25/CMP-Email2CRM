@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import type { DemandeWithRelations, Document } from "@shared/schema";
-import { etatLabels } from "@shared/schema";
+import { etatLabels, contactQualiteLabels } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { AdresseLink } from "@/components/AdresseLink";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,15 @@ import {
 } from "lucide-react";
 
 type DocumentMeta = Omit<Document, "data"> & { size: number };
+
+const qualiteBadgeColors: Record<string, string> = {
+  gestionnaire: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  proprietaire: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  locataire: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  conseil_syndical: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  gardien: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  autre: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+};
 
 const etatColors: Record<string, string> = {
   nouvelle: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -462,6 +471,59 @@ export default function DemandeDetail() {
             </div>
           </Card>
         )}
+
+        <Card className="p-6 mt-4" data-testid="card-contacts">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5" />
+            Contacts
+            {demande.contacts.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs normal-case tracking-normal">
+                {demande.contacts.length}
+              </Badge>
+            )}
+          </h2>
+          {demande.contacts.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic" data-testid="text-no-contacts">
+              Aucun contact identifié pour cette demande.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {demande.contacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex flex-col gap-1"
+                  data-testid={`row-contact-${contact.id}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground" data-testid={`text-contact-nom-${contact.id}`}>
+                      {contact.nom || <span className="text-muted-foreground italic">Sans nom</span>}
+                    </span>
+                    <Badge
+                      className={qualiteBadgeColors[contact.qualite] || qualiteBadgeColors.autre}
+                      data-testid={`badge-contact-qualite-${contact.id}`}
+                    >
+                      {contactQualiteLabels[contact.qualite as keyof typeof contactQualiteLabels] || contact.qualite}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    {contact.telephone && (
+                      <span className="flex items-center gap-1" data-testid={`text-contact-telephone-${contact.id}`}>
+                        <Phone className="w-3.5 h-3.5" />
+                        {contact.telephone}
+                      </span>
+                    )}
+                    {contact.email && (
+                      <span className="flex items-center gap-1" data-testid={`text-contact-email-${contact.id}`}>
+                        <Mail className="w-3.5 h-3.5" />
+                        {contact.email}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         <DocumentsSection demandeId={demande.id} />
       </div>

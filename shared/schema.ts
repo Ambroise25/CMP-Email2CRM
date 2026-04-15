@@ -153,6 +153,7 @@ export type Demande = typeof demandes.$inferSelect;
 export type DemandeWithRelations = Demande & {
   bien: Bien;
   gestionnaire: Gestionnaire | null;
+  contacts: Contact[];
 };
 
 export const EMAIL_STATUTS = ["traite", "erreur", "ignore"] as const;
