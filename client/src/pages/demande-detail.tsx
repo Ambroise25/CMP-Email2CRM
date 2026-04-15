@@ -476,19 +476,19 @@ export default function DemandeDetail() {
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-1.5">
             <User className="w-3.5 h-3.5" />
             Contacts
-            {demande.contacts.length > 0 && (
+            {(demande.contacts ?? []).length > 0 && (
               <Badge variant="secondary" className="ml-1 text-xs normal-case tracking-normal">
-                {demande.contacts.length}
+                {(demande.contacts ?? []).length}
               </Badge>
             )}
           </h2>
-          {demande.contacts.length === 0 ? (
+          {(demande.contacts ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground italic" data-testid="text-no-contacts">
               Aucun contact identifié pour cette demande.
             </p>
           ) : (
             <div className="space-y-3">
-              {demande.contacts.map((contact) => (
+              {(demande.contacts ?? []).map((contact) => (
                 <div
                   key={contact.id}
                   className="flex flex-col gap-1"
