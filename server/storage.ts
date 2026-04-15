@@ -86,6 +86,7 @@ export interface IStorage {
   updateGestionnaire(id: number, updates: UpdateGestionnaire): Promise<Gestionnaire | undefined>;
   deleteGestionnaire(id: number, reassignTo?: number): Promise<{ success: boolean; bienCount: number }>;
   countBiensByGestionnaire(gestionnaireId: number): Promise<number>;
+  findOrCreateGestionnaire(nom: string, email?: string | null, telephone?: string | null): Promise<Gestionnaire>;
   getDemandes(page: number, limit: number, filters?: { bienId?: number; etat?: string; metier?: string; excludeNouvelle?: boolean }): Promise<PaginatedResponse<DemandeWithRelations>>;
   getDemandeById(id: number): Promise<DemandeWithRelations | undefined>;
   createDemande(demande: InsertDemande): Promise<Demande>;
@@ -226,6 +227,22 @@ export class DatabaseStorage implements IStorage {
       .from(biens)
       .where(eq(biens.gestionnaireId, gestionnaireId));
     return result?.count ?? 0;
+  }
+
+  async findOrCreateGestionnaire(nom: string, email?: string | null, telephone?: string | null): Promise<Gestionnaire> {
+    const [existing] = await db
+      .select()
+      .from(gestionnaires)
+      .where(ilike(gestionnaires.nom, `%${nom}%`))
+      .limit(1);
+    if (existing) {
+      return existing;
+    }
+    const [created] = await db
+      .insert(gestionnaires)
+      .values({ nom, email: email || null, telephone: telephone || null })
+      .returning();
+    return created;
   }
 
   async deleteGestionnaire(id: number, reassignTo?: number): Promise<{ success: boolean; bienCount: number }> {

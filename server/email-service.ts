@@ -606,17 +606,27 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             gestionnaireId = bestMatch.bien.gestionnaire?.id || null;
             log(`Bien trouvé: ID=${bienId} (score=${bestMatch.score})`, "email-service");
           } else {
+            let resolvedGestionnaireId: number | null = null;
+            if (parsed.syndic) {
+              const gestionnaireContact = parsed.contacts?.find(c => c.qualite === "gestionnaire");
+              const gestionnaireEmail = gestionnaireContact?.email || null;
+              const gestionnaireTel = gestionnaireContact?.telephone || null;
+              const g = await storage.findOrCreateGestionnaire(parsed.syndic, gestionnaireEmail, gestionnaireTel);
+              resolvedGestionnaireId = g.id;
+              log(`Gestionnaire résolu: ${g.nom} (ID=${g.id})`, "email-service");
+            }
+
             const newBien = await storage.createBien({
               adresse: adresseEffective,
               codePostal: codePostalEffectif,
               ville: parsed.bien?.ville || "",
-              gestionnaireId: null,
+              gestionnaireId: resolvedGestionnaireId,
               information: null,
               complementAdresse: null,
             });
             bienId = newBien.id;
-            gestionnaireId = null;
-            log(`Nouveau bien créé sans gestionnaire: ID=${bienId}`, "email-service");
+            gestionnaireId = resolvedGestionnaireId;
+            log(`Nouveau bien créé: ID=${bienId}${resolvedGestionnaireId ? ` avec gestionnaire ID=${resolvedGestionnaireId}` : " sans gestionnaire"}`, "email-service");
           }
 
           if (!bienId) {
