@@ -102,6 +102,8 @@ export interface IStorage {
   deleteDocument(id: number): Promise<boolean>;
   getContacts(page: number, limit: number, qualite?: string, search?: string): Promise<PaginatedResponse<ContactWithDemande>>;
   createContacts(contactList: InsertContact[]): Promise<Contact[]>;
+  deleteContactsByDemande(demandeId: number): Promise<void>;
+  replaceContactsByDemande(demandeId: number, contactList: InsertContact[]): Promise<Contact[]>;
   reassignGestionnaires(): Promise<{ demandesUpdated: number; biensUpdated: number; unmatched: string[] }>;
 }
 
@@ -511,6 +513,19 @@ export class DatabaseStorage implements IStorage {
     if (contactList.length === 0) return [];
     const created = await db.insert(contacts).values(contactList).returning();
     return created;
+  }
+
+  async deleteContactsByDemande(demandeId: number): Promise<void> {
+    await db.delete(contacts).where(eq(contacts.demandeId, demandeId));
+  }
+
+  async replaceContactsByDemande(demandeId: number, contactList: InsertContact[]): Promise<Contact[]> {
+    return await db.transaction(async (tx) => {
+      await tx.delete(contacts).where(eq(contacts.demandeId, demandeId));
+      if (contactList.length === 0) return [];
+      const created = await tx.insert(contacts).values(contactList).returning();
+      return created;
+    });
   }
 
   async reassignGestionnaires(): Promise<{ demandesUpdated: number; biensUpdated: number; unmatched: string[] }> {

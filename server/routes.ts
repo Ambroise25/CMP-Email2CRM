@@ -448,6 +448,19 @@ export async function registerRoutes(
         champsManquants: infoManquantes ? champsManquantsList.join(", ") : null,
       });
 
+      const freshContacts = (parsed.contacts || [])
+        .filter((c) => c.nom || c.telephone || c.email)
+        .map((c) => ({
+          demandeId: id,
+          nom: c.nom || null,
+          telephone: c.telephone || null,
+          email: c.email || null,
+          qualite: CONTACT_QUALITES.includes(c.qualite as typeof CONTACT_QUALITES[number])
+            ? (c.qualite as string)
+            : "autre",
+        }));
+      await storage.replaceContactsByDemande(id, freshContacts);
+
       return res.json(updated);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });
