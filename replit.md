@@ -4,6 +4,7 @@
 API REST pour la gestion de biens immobiliers et demandes d'intervention avec CRUD complet, pagination, filtres avances, et recherche intelligente par adresse avec scoring de similarite.
 
 ## Recent Changes
+- 2026-04-20: Import clients réels — 196 clients importés depuis CSV comme gestionnaires, champ `adresse` ajouté au schéma, anciens gestionnaires de test supprimés, `findOrCreateGestionnaire` mis à jour avec le paramètre `adresse`, affichage adresse dans la page /gestionnaires
 - 2026-04-14: Gestionnaires management page — Full CRUD for gestionnaires (POST/PUT/DELETE routes), reassignment flow on delete, nullable gestionnaireId in biens/demandes, email parser no longer forces gestionnaire #1 (creates bien without gestionnaire when none identified)
 - 2026-04-04: Email parser integrated — Gmail IMAP polling, Mistral AI parsing via OpenRouter (ministral-8b-2512), LLM classification step (OUI/NON), automatic bien/demande creation, IMAP archiving to "Email traite"/"Erreurs" folders, `/emails` UI page
 - 2026-03-03: US002 - Added CRUD for demandes (intervention requests) with enums for etats/metiers, filters, and frontend pages

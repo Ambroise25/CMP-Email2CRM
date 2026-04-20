@@ -49,7 +49,7 @@ import {
   Trash2,
   Mail,
   Phone,
-  Building2,
+  MapPin,
   Loader2,
   ArrowLeft,
 } from "lucide-react";
@@ -58,6 +58,7 @@ const formSchema = insertGestionnaireSchema.extend({
   nom: z.string().min(1, "Le nom est requis"),
   email: z.string().email("Email invalide").optional().or(z.literal("")),
   telephone: z.string().optional(),
+  adresse: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -80,6 +81,7 @@ function GestionnaireForm({
       nom: gestionnaire?.nom ?? "",
       email: gestionnaire?.email ?? "",
       telephone: gestionnaire?.telephone ?? "",
+      adresse: gestionnaire?.adresse ?? "",
     },
   });
 
@@ -89,6 +91,7 @@ function GestionnaireForm({
         nom: data.nom,
         email: data.email || null,
         telephone: data.telephone || null,
+        adresse: data.adresse || null,
       });
       return res.json();
     },
@@ -108,6 +111,7 @@ function GestionnaireForm({
         nom: data.nom,
         email: data.email || null,
         telephone: data.telephone || null,
+        adresse: data.adresse || null,
       });
       return res.json();
     },
@@ -181,6 +185,25 @@ function GestionnaireForm({
                   {...field}
                   value={field.value ?? ""}
                   data-testid="input-gestionnaire-telephone"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="adresse"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Adresse</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="1 rue de la Paix, 75001 Paris"
+                  {...field}
+                  value={field.value ?? ""}
+                  data-testid="input-gestionnaire-adresse"
                 />
               </FormControl>
               <FormMessage />
@@ -400,19 +423,25 @@ export default function GestionnairesList() {
                       {gestionnaire.nom}
                     </h3>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mt-0.5">
+                      {gestionnaire.adresse && (
+                        <span className="flex items-center gap-1" data-testid={`text-gestionnaire-adresse-${gestionnaire.id}`}>
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          {gestionnaire.adresse}
+                        </span>
+                      )}
                       {gestionnaire.email && (
                         <span className="flex items-center gap-1" data-testid={`text-gestionnaire-email-${gestionnaire.id}`}>
-                          <Mail className="w-3.5 h-3.5" />
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
                           {gestionnaire.email}
                         </span>
                       )}
                       {gestionnaire.telephone && (
                         <span className="flex items-center gap-1" data-testid={`text-gestionnaire-telephone-${gestionnaire.id}`}>
-                          <Phone className="w-3.5 h-3.5" />
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
                           {gestionnaire.telephone}
                         </span>
                       )}
-                      {!gestionnaire.email && !gestionnaire.telephone && (
+                      {!gestionnaire.adresse && !gestionnaire.email && !gestionnaire.telephone && (
                         <span className="italic">Aucune coordonnée</span>
                       )}
                     </div>

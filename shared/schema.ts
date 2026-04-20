@@ -23,6 +23,7 @@ export const gestionnaires = pgTable("gestionnaires", {
   nom: text("nom").notNull(),
   email: text("email"),
   telephone: text("telephone"),
+  adresse: text("adresse"),
 });
 
 export const gestionnairesRelations = relations(gestionnaires, ({ many }) => ({
