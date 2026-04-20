@@ -25,6 +25,7 @@ import {
   UserX,
   RefreshCw,
   CheckCircle,
+  Download,
 } from "lucide-react";
 
 export default function BiensList() {
@@ -64,6 +65,29 @@ export default function BiensList() {
       toast({
         title: "Erreur",
         description: "Impossible de lancer la réassignation.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importSyndicsMutation = useMutation({
+    mutationFn: (names: string[]) =>
+      apiRequest("POST", "/api/admin/import-syndics", { names }),
+    onSuccess: async (res) => {
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/gestionnaires"] });
+      const parts = [`${result.created} créé(s)`];
+      if (result.skipped > 0) parts.push(`${result.skipped} ignoré(s)`);
+      toast({
+        title: "Syndics importés",
+        description: `${parts.join(", ")}. Lancement de la réassignation...`,
+      });
+      reassignMutation.mutate();
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'importer les syndics.",
         variant: "destructive",
       });
     },
@@ -174,16 +198,30 @@ export default function BiensList() {
                 <strong>{reassignResult.biensUpdated}</strong> biens ont été réassignés à leur gestionnaire.
               </p>
               {reassignResult.unmatched.length > 0 && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-sm text-muted-foreground">
-                    {reassignResult.unmatched.length} syndic(s) non identifié(s)
-                  </summary>
-                  <ul className="mt-1 text-sm text-muted-foreground list-disc list-inside">
-                    {reassignResult.unmatched.map((name) => (
-                      <li key={name}>{name}</li>
-                    ))}
-                  </ul>
-                </details>
+                <div className="mt-3">
+                  <details>
+                    <summary className="cursor-pointer text-sm text-muted-foreground">
+                      {reassignResult.unmatched.length} syndic(s) non identifié(s) — cliquer pour voir la liste
+                    </summary>
+                    <ul className="mt-1 text-sm text-muted-foreground list-disc list-inside">
+                      {reassignResult.unmatched.map((name) => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                  </details>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => importSyndicsMutation.mutate(reassignResult.unmatched)}
+                    disabled={importSyndicsMutation.isPending || reassignMutation.isPending}
+                    data-testid="button-import-syndics"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {importSyndicsMutation.isPending || reassignMutation.isPending
+                      ? "Import en cours..."
+                      : `Importer ${reassignResult.unmatched.length} syndic(s) et réassigner`}
+                  </Button>
+                </div>
               )}
             </AlertDescription>
           </Alert>

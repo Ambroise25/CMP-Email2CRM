@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, insertGestionnaireSchema, updateGestionnaireSchema, ETATS, METIERS, CONTACT_QUALITES } from "@shared/schema";
-import { ZodError } from "zod";
+import { ZodError, z } from "zod";
 import { emailServiceState, triggerManualSync } from "./email-service";
 
 export async function registerRoutes(
@@ -543,6 +543,39 @@ export async function registerRoutes(
       return res.json({ success: true, ...result });
     } catch (err) {
       return res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.post("/api/admin/import-syndics", async (req, res) => {
+    try {
+      const { names } = z.object({ names: z.array(z.string()) }).parse(req.body);
+
+      const allGestionnaires = await storage.getGestionnaires();
+      const existingNames = new Set(allGestionnaires.map((g) => g.nom.trim().toLowerCase()));
+
+      let created = 0;
+      let skipped = 0;
+      let invalid = 0;
+
+      for (const raw of names) {
+        const trimmed = raw.trim();
+        if (!trimmed) {
+          invalid++;
+          continue;
+        }
+        const key = trimmed.toLowerCase();
+        if (existingNames.has(key)) {
+          skipped++;
+          continue;
+        }
+        await storage.createGestionnaire({ nom: trimmed });
+        existingNames.add(key);
+        created++;
+      }
+
+      return res.json({ success: true, created, skipped, invalid });
+    } catch (err) {
+      return res.status(400).json({ success: false, error: String(err) });
     }
   });
 
