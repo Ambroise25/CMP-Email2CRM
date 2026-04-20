@@ -19,13 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { GestionnaireCombobox } from "@/components/gestionnaire-combobox";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -214,25 +208,15 @@ export default function BienForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Gestionnaire *</FormLabel>
-                    <Select
-                      onValueChange={(val) => field.onChange(parseInt(val))}
-                      value={field.value ? field.value.toString() : ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-gestionnaire">
-                          <SelectValue placeholder="Selectionner un gestionnaire" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {gestionnairesLoading ? (
-                          <div className="p-2 text-center text-sm text-muted-foreground">Chargement...</div>
-                        ) : gestionnairesList?.map((g) => (
-                          <SelectItem key={g.id} value={g.id.toString()} data-testid={`option-gestionnaire-${g.id}`}>
-                            {g.nom}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <GestionnaireCombobox
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id)}
+                        gestionnaires={gestionnairesList ?? []}
+                        disabled={gestionnairesLoading}
+                        data-testid="select-gestionnaire"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
