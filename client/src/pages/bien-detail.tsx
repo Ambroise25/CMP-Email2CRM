@@ -1,11 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import type { BienWithGestionnaire } from "@shared/schema";
+import type { BienWithGestionnaire, Gestionnaire } from "@shared/schema";
 import { Card } from "@/components/ui/card";
 import { AdresseLink } from "@/components/AdresseLink";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GestionnaireCombobox } from "@/components/gestionnaire-combobox";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Building2,
   MapPin,
@@ -17,13 +21,34 @@ import {
   Hash,
   Mail,
   Phone,
+  Save,
 } from "lucide-react";
 
 export default function BienDetail() {
   const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
+  const [selectedGestionnaireId, setSelectedGestionnaireId] = useState<number | null>(null);
 
   const { data: bien, isLoading, error } = useQuery<BienWithGestionnaire>({
     queryKey: ["/api/biens", id],
+  });
+
+  const { data: gestionnaires = [] } = useQuery<Gestionnaire[]>({
+    queryKey: ["/api/gestionnaires"],
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: (gestionnaireId: number) =>
+      apiRequest("PUT", `/api/biens/${id}`, { gestionnaireId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/biens", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/biens"] });
+      setSelectedGestionnaireId(null);
+      toast({ title: "Gestionnaire assigné", description: "Le gestionnaire a été enregistré avec succès." });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible d'assigner le gestionnaire.", variant: "destructive" });
+    },
   });
 
   if (isLoading) {
@@ -148,7 +173,7 @@ export default function BienDetail() {
           )}
         </Card>
 
-        {bien.gestionnaire && (
+        {bien.gestionnaire ? (
           <Card className="p-6 mt-4" data-testid="card-gestionnaire">
             <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5" />
@@ -170,6 +195,34 @@ export default function BienDetail() {
                   {bien.gestionnaire.telephone}
                 </p>
               )}
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-6 mt-4" data-testid="card-assign-gestionnaire">
+            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" />
+              Gestionnaire
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4 italic" data-testid="text-no-gestionnaire">
+              Aucun gestionnaire assigné à ce bien.
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <GestionnaireCombobox
+                  value={selectedGestionnaireId}
+                  onChange={setSelectedGestionnaireId}
+                  gestionnaires={gestionnaires}
+                  data-testid="combobox-assign-gestionnaire"
+                />
+              </div>
+              <Button
+                onClick={() => selectedGestionnaireId && reassignMutation.mutate(selectedGestionnaireId)}
+                disabled={!selectedGestionnaireId || reassignMutation.isPending}
+                data-testid="button-save-gestionnaire"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {reassignMutation.isPending ? "Enregistrement..." : "Enregistrer"}
+              </Button>
             </div>
           </Card>
         )}
