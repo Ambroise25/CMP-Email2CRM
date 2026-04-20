@@ -2,13 +2,15 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import type { DemandeWithRelations, Document, Gestionnaire, EmailLog } from "@shared/schema";
-import { etatLabels, contactQualiteLabels } from "@shared/schema";
+import { etatLabels, contactQualiteLabels, CONTACT_QUALITES } from "@shared/schema";
 import { GestionnaireCombobox } from "@/components/gestionnaire-combobox";
 import { Card } from "@/components/ui/card";
 import { AdresseLink } from "@/components/AdresseLink";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -39,6 +41,8 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Plus,
+  X,
 } from "lucide-react";
 
 type DocumentMeta = Omit<Document, "data"> & { size: number };
@@ -80,6 +84,182 @@ function formatFileSize(sizeBytes: number): string {
 function getFileIcon(mimeType: string) {
   if (mimeType.startsWith("image/")) return Image;
   return File;
+}
+
+function ContactsCard({ demandeId, contacts }: { demandeId: number; contacts: DemandeWithRelations["contacts"] }) {
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [nom, setNom] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [email, setEmail] = useState("");
+  const [qualite, setQualite] = useState<string>("autre");
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", `/api/demandes/${demandeId}/contacts`, { nom: nom || null, telephone: telephone || null, email: email || null, qualite }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandes", demandeId] });
+      toast({ title: "Contact ajouté" });
+      setNom(""); setTelephone(""); setEmail(""); setQualite("autre");
+      setShowForm(false);
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible d'ajouter le contact.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (contactId: number) => apiRequest("DELETE", `/api/contacts/${contactId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandes", demandeId] });
+      toast({ title: "Contact supprimé" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Impossible de supprimer le contact.", variant: "destructive" });
+    },
+  });
+
+  const canSubmit = !!(nom || telephone || email);
+
+  return (
+    <Card className="p-6 mt-4" data-testid="card-contacts">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+          <User className="w-3.5 h-3.5" />
+          Contacts
+          {contacts.length > 0 && (
+            <Badge variant="secondary" className="ml-1 text-xs normal-case tracking-normal">
+              {contacts.length}
+            </Badge>
+          )}
+        </h2>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowForm((v) => !v)}
+          data-testid="button-toggle-add-contact"
+        >
+          <Plus className="w-3.5 h-3.5 mr-1" />
+          Ajouter
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3" data-testid="form-add-contact">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              placeholder="Nom"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              data-testid="input-contact-nom"
+            />
+            <Input
+              placeholder="Téléphone"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+              data-testid="input-contact-telephone"
+            />
+            <Input
+              placeholder="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="input-contact-email"
+            />
+            <Select value={qualite} onValueChange={setQualite}>
+              <SelectTrigger data-testid="select-contact-qualite">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTACT_QUALITES.map((q) => (
+                  <SelectItem key={q} value={q}>
+                    {contactQualiteLabels[q as keyof typeof contactQualiteLabels]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => addMutation.mutate()}
+              disabled={!canSubmit || addMutation.isPending}
+              data-testid="button-submit-add-contact"
+            >
+              {addMutation.isPending ? "Ajout…" : "Confirmer"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowForm(false)}
+              data-testid="button-cancel-add-contact"
+            >
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {contacts.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic" data-testid="text-no-contacts">
+          Aucun contact identifié pour cette demande.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {contacts.map((contact) => (
+            <div
+              key={contact.id}
+              className="flex items-start justify-between gap-2"
+              data-testid={`row-contact-${contact.id}`}
+            >
+              <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-foreground" data-testid={`text-contact-nom-${contact.id}`}>
+                    {contact.nom || <span className="text-muted-foreground italic">Sans nom</span>}
+                  </span>
+                  <Badge
+                    className={qualiteBadgeColors[contact.qualite] || qualiteBadgeColors.autre}
+                    data-testid={`badge-contact-qualite-${contact.id}`}
+                  >
+                    {contactQualiteLabels[contact.qualite as keyof typeof contactQualiteLabels] || contact.qualite}
+                  </Badge>
+                  {!contact.autoGenerated && (
+                    <Badge variant="outline" className="text-xs" data-testid={`badge-contact-manual-${contact.id}`}>
+                      Manuel
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  {contact.telephone && (
+                    <span className="flex items-center gap-1" data-testid={`text-contact-telephone-${contact.id}`}>
+                      <Phone className="w-3.5 h-3.5" />
+                      {contact.telephone}
+                    </span>
+                  )}
+                  {contact.email && (
+                    <span className="flex items-center gap-1" data-testid={`text-contact-email-${contact.id}`}>
+                      <Mail className="w-3.5 h-3.5" />
+                      {contact.email}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() => deleteMutation.mutate(contact.id)}
+                disabled={deleteMutation.isPending}
+                data-testid={`button-delete-contact-${contact.id}`}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function DocumentsSection({ demandeId }: { demandeId: number }) {
@@ -549,58 +729,7 @@ export default function DemandeDetail() {
           </Card>
         )}
 
-        <Card className="p-6 mt-4" data-testid="card-contacts">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5" />
-            Contacts
-            {(demande.contacts ?? []).length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs normal-case tracking-normal">
-                {(demande.contacts ?? []).length}
-              </Badge>
-            )}
-          </h2>
-          {(demande.contacts ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground italic" data-testid="text-no-contacts">
-              Aucun contact identifié pour cette demande.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {(demande.contacts ?? []).map((contact) => (
-                <div
-                  key={contact.id}
-                  className="flex flex-col gap-1"
-                  data-testid={`row-contact-${contact.id}`}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground" data-testid={`text-contact-nom-${contact.id}`}>
-                      {contact.nom || <span className="text-muted-foreground italic">Sans nom</span>}
-                    </span>
-                    <Badge
-                      className={qualiteBadgeColors[contact.qualite] || qualiteBadgeColors.autre}
-                      data-testid={`badge-contact-qualite-${contact.id}`}
-                    >
-                      {contactQualiteLabels[contact.qualite as keyof typeof contactQualiteLabels] || contact.qualite}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    {contact.telephone && (
-                      <span className="flex items-center gap-1" data-testid={`text-contact-telephone-${contact.id}`}>
-                        <Phone className="w-3.5 h-3.5" />
-                        {contact.telephone}
-                      </span>
-                    )}
-                    {contact.email && (
-                      <span className="flex items-center gap-1" data-testid={`text-contact-email-${contact.id}`}>
-                        <Mail className="w-3.5 h-3.5" />
-                        {contact.email}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        <ContactsCard demandeId={demande.id} contacts={demande.contacts ?? []} />
 
         <DocumentsSection demandeId={demande.id} />
 
