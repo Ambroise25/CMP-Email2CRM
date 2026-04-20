@@ -99,7 +99,7 @@ Extrait TOUTES les infos du corps de l'email ET des pieces jointes. Reponds avec
 
 {
   "bien": {"adresse": "...", "code_postal": "...", "ville": "...", "nom_copropriete": "..."},
-  "demande": {"objet": "...", "detail": "...", "metier": "Etancheite|Plomberie|Electricite|Autre", "urgence": "Urgent|Normal|Faible", "ref_syndic": "..."},
+  "demande": {"objet": "...", "detail": "...", "urgence": "Urgent|Normal|Faible", "ref_syndic": "..."},
   "contacts": [{"nom": "...", "telephone": "...", "email": "...", "qualite": "gardien|proprietaire|locataire|gestionnaire|conseil_syndical|autre"}],
   "codes_acces": "Digicode: ..., Interphone: ...",
   "syndic": "...",
@@ -113,8 +113,6 @@ IMPORTANT:
 - Pour qualite: "gestionnaire" = syndic/gestionnaire immobilier, "conseil_syndical" = membre du conseil syndical de la copropriété, "proprietaire" = propriétaire du lot, "locataire" = locataire occupant, "gardien" = gardien/concierge.
 - Utilise null si absent. Reponds avec un JSON valide uniquement, sans markdown.`;
 
-const VALID_METIERS = ["Etancheite", "Plomberie", "Electricite", "Autre"] as const;
-type ValidMetier = typeof VALID_METIERS[number];
 
 const MAX_BODY_CHARS = 10000;
 
@@ -212,7 +210,6 @@ interface ParsedEmailData {
   demande: {
     objet: string | null;
     detail: string | null;
-    metier: string | null;
     urgence: string | null;
     ref_syndic: string | null;
   } | null;
@@ -565,7 +562,6 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
 
         const adresse = parsed.bien?.adresse;
         const codePostal = parsed.bien?.code_postal;
-        const metier = parsed.demande?.metier;
         const objet = parsed.demande?.objet;
         const urgence = parsed.demande?.urgence || "Normal";
         const contacts = parsed.contacts || [];
@@ -574,7 +570,6 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
         const champsManquantsList: string[] = [];
         if (!adresse) champsManquantsList.push("adresse");
         if (!codePostal) champsManquantsList.push("code postal");
-        if (!metier) champsManquantsList.push("métier");
         if (!objet) champsManquantsList.push("objet");
 
         const infoManquantes = champsManquantsList.length > 0;
@@ -588,7 +583,6 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
 
         const adresseEffective = adresse || "À compléter";
         const codePostalEffectif = codePostal || "À compléter";
-        const metierEffectif = metier || "Autre";
         const objetEffectif = objet || "À compléter";
 
         let demandeId: number | null = null;
@@ -633,10 +627,6 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             throw new Error("Impossible de déterminer le bien");
           }
 
-          const metierValue: ValidMetier = VALID_METIERS.includes(metierEffectif as ValidMetier)
-            ? (metierEffectif as ValidMetier)
-            : "Autre";
-
           const contactsText = contacts
             .filter((c) => c.nom || c.telephone)
             .map((c) => [c.nom, c.qualite, c.telephone, c.email].filter(Boolean).join(" | "))
@@ -655,7 +645,7 @@ async function processEmails(): Promise<{ processed: number; errors: number; ign
             gestionnaireId,
             objet: objetEffectif.slice(0, 200),
             detail: parsed.demande?.detail || email.body.slice(0, 500) || null,
-            metier: metierValue,
+            metier: "Autre",
             etat: "nouvelle",
             dateDemandeClient: email.date,
             refSyndic: parsed.demande?.ref_syndic || null,

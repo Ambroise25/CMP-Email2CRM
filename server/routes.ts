@@ -433,18 +433,9 @@ export async function registerRoutes(
         return res.status(502).json({ error: "Le parsing LLM a échoué, veuillez réessayer" });
       }
 
-      const VALID_METIERS = ["Etancheite", "Plomberie", "Electricite", "Autre"] as const;
-      type ValidMetier = typeof VALID_METIERS[number];
-
-      const metierRaw = parsed.demande?.metier;
-      const metierValue: ValidMetier = VALID_METIERS.includes(metierRaw as ValidMetier)
-        ? (metierRaw as ValidMetier)
-        : "Autre";
-
       const champsManquantsList: string[] = [];
       if (!parsed.bien?.adresse) champsManquantsList.push("adresse");
       if (!parsed.bien?.code_postal) champsManquantsList.push("code postal");
-      if (!metierRaw) champsManquantsList.push("métier");
       if (!parsed.demande?.objet) champsManquantsList.push("objet");
 
       const infoManquantes = champsManquantsList.length > 0;
@@ -452,7 +443,6 @@ export async function registerRoutes(
       const updated = await storage.updateDemande(id, {
         objet: (parsed.demande?.objet || demande.objet).slice(0, 200),
         detail: parsed.demande?.detail || demande.detail,
-        metier: metierValue,
         refSyndic: parsed.demande?.ref_syndic || demande.refSyndic,
         infoManquantes,
         champsManquants: infoManquantes ? champsManquantsList.join(", ") : null,
