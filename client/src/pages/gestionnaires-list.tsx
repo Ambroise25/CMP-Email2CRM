@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,6 +52,9 @@ import {
   MapPin,
   Loader2,
   ArrowLeft,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 const formSchema = insertGestionnaireSchema.extend({
@@ -311,16 +314,47 @@ function DeleteGestionnaireDialog({
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function GestionnairesList() {
   const { toast } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [editingGestionnaire, setEditingGestionnaire] = useState<Gestionnaire | undefined>(undefined);
   const [deletingGestionnaire, setDeletingGestionnaire] = useState<Gestionnaire | undefined>(undefined);
   const [bienCountForDelete, setBienCountForDelete] = useState(0);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: gestionnairesList, isLoading } = useQuery<Gestionnaire[]>({
     queryKey: ["/api/gestionnaires"],
   });
+
+  const filteredGestionnaires = (gestionnairesList ?? []).filter((g) => {
+    const term = search.toLowerCase().trim();
+    if (!term) return true;
+    return (
+      g.nom.toLowerCase().includes(term) ||
+      (g.adresse ?? "").toLowerCase().includes(term)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredGestionnaires.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedGestionnaires = filteredGestionnaires.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  useEffect(() => {
+    if (page > totalPages && totalPages > 0) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, reassignTo }: { id: number; reassignTo?: number }) => {
@@ -385,8 +419,12 @@ export default function GestionnairesList() {
               <h1 className="text-2xl font-semibold text-foreground" data-testid="text-page-title">
                 Gestionnaires
               </h1>
-              <p className="text-muted-foreground mt-1">
-                {gestionnairesList ? `${gestionnairesList.length} gestionnaire${gestionnairesList.length > 1 ? "s" : ""}` : "Chargement..."}
+              <p className="text-muted-foreground mt-1" data-testid="text-result-count">
+                {isLoading
+                  ? "Chargement..."
+                  : search.trim()
+                  ? `${filteredGestionnaires.length} résultat${filteredGestionnaires.length !== 1 ? "s" : ""} sur ${gestionnairesList?.length ?? 0}`
+                  : `${gestionnairesList?.length ?? 0} gestionnaire${(gestionnairesList?.length ?? 0) !== 1 ? "s" : ""}`}
               </p>
             </div>
           </div>
@@ -394,6 +432,17 @@ export default function GestionnairesList() {
             <Plus className="w-4 h-4 mr-2" />
             Nouveau gestionnaire
           </Button>
+        </div>
+
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Rechercher par nom ou adresse..."
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-gestionnaire"
+          />
         </div>
 
         {isLoading ? (
@@ -410,9 +459,9 @@ export default function GestionnairesList() {
               </Card>
             ))}
           </div>
-        ) : gestionnairesList && gestionnairesList.length > 0 ? (
+        ) : filteredGestionnaires.length > 0 ? (
           <div className="space-y-3">
-            {gestionnairesList.map((gestionnaire) => (
+            {paginatedGestionnaires.map((gestionnaire) => (
               <Card key={gestionnaire.id} className="p-4" data-testid={`card-gestionnaire-${gestionnaire.id}`}>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center justify-center h-10 w-10 rounded-md bg-primary/10 text-primary shrink-0">
@@ -468,7 +517,44 @@ export default function GestionnairesList() {
                 </div>
               </Card>
             ))}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2" data-testid="pagination-controls">
+                <p className="text-sm text-muted-foreground">
+                  Page {currentPage} sur {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Précédent
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    data-testid="button-next-page"
+                  >
+                    Suivant
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+        ) : search.trim() ? (
+          <Card className="p-12 text-center" data-testid="card-no-results">
+            <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-1" data-testid="text-no-results-title">Aucun résultat</h3>
+            <p className="text-muted-foreground">
+              Aucun gestionnaire ne correspond à «&nbsp;{search}&nbsp;».
+            </p>
+          </Card>
         ) : (
           <Card className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
