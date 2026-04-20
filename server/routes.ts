@@ -36,8 +36,9 @@ export async function registerRoutes(
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
       const search = (req.query.search as string) || undefined;
+      const sansGestionnaire = req.query.sans_gestionnaire === "1";
 
-      const result = await storage.getBiens(page, limit, search);
+      const result = await storage.getBiens(page, limit, search, sansGestionnaire);
       return res.json(result);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });
@@ -530,6 +531,15 @@ export async function registerRoutes(
   app.post("/api/emails/sync", async (_req, res) => {
     try {
       const result = await triggerManualSync();
+      return res.json({ success: true, ...result });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.post("/api/admin/reassign-gestionnaires", async (_req, res) => {
+    try {
+      const result = await storage.reassignGestionnaires();
       return res.json({ success: true, ...result });
     } catch (err) {
       return res.status(500).json({ success: false, error: String(err) });

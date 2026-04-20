@@ -75,7 +75,7 @@ function calculateSimilarity(a: string, b: string): number {
 }
 
 export interface IStorage {
-  getBiens(page: number, limit: number, search?: string): Promise<PaginatedResponse<BienWithGestionnaire>>;
+  getBiens(page: number, limit: number, search?: string, sansGestionnaire?: boolean): Promise<PaginatedResponse<BienWithGestionnaire>>;
   getBienById(id: number): Promise<BienWithGestionnaire | undefined>;
   createBien(bien: InsertBien): Promise<Bien>;
   updateBien(id: number, bien: UpdateBien): Promise<Bien | undefined>;
@@ -100,15 +100,21 @@ export interface IStorage {
   deleteDocument(id: number): Promise<boolean>;
   getContacts(page: number, limit: number, qualite?: string, search?: string): Promise<PaginatedResponse<ContactWithDemande>>;
   createContacts(contactList: InsertContact[]): Promise<Contact[]>;
+  reassignGestionnaires(): Promise<{ demandesUpdated: number; biensUpdated: number; unmatched: string[] }>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async getBiens(page: number, limit: number, search?: string): Promise<PaginatedResponse<BienWithGestionnaire>> {
+  async getBiens(page: number, limit: number, search?: string, sansGestionnaire?: boolean): Promise<PaginatedResponse<BienWithGestionnaire>> {
     const offset = (page - 1) * limit;
 
-    const whereClause = search
-      ? sql`(${biens.adresse} ILIKE ${'%' + search + '%'} OR ${biens.ville} ILIKE ${'%' + search + '%'} OR ${biens.codePostal} ILIKE ${'%' + search + '%'})`
-      : sql`1=1`;
+    const conditions = [];
+    if (search) {
+      conditions.push(sql`(${biens.adresse} ILIKE ${'%' + search + '%'} OR ${biens.ville} ILIKE ${'%' + search + '%'} OR ${biens.codePostal} ILIKE ${'%' + search + '%'})`);
+    }
+    if (sansGestionnaire) {
+      conditions.push(isNull(biens.gestionnaireId));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : sql`1=1`;
 
     const [totalResult] = await db
       .select({ count: count() })
@@ -477,6 +483,127 @@ export class DatabaseStorage implements IStorage {
     if (contactList.length === 0) return [];
     const created = await db.insert(contacts).values(contactList).returning();
     return created;
+  }
+
+  async reassignGestionnaires(): Promise<{ demandesUpdated: number; biensUpdated: number; unmatched: string[] }> {
+    const allGestionnaires = await db.select().from(gestionnaires);
+
+    function normalizeName(name: string): string {
+      return name
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function findBestGestionnaire(syndicName: string): { gestionnaire: typeof allGestionnaires[0]; score: number } | null {
+      const normalizedSyndic = normalizeName(syndicName);
+      const syndicTokens = normalizedSyndic.split(" ").filter(Boolean);
+
+      let best: { gestionnaire: typeof allGestionnaires[0]; score: number } | null = null;
+
+      for (const g of allGestionnaires) {
+        const normalizedG = normalizeName(g.nom);
+        const gTokens = normalizedG.split(" ").filter(Boolean);
+
+        let matchCount = 0;
+        for (const ta of syndicTokens) {
+          if (gTokens.some((tb) => tb === ta || tb.includes(ta) || ta.includes(tb))) {
+            matchCount++;
+          }
+        }
+        const score = matchCount / Math.max(syndicTokens.length, gTokens.length);
+
+        if (!best || score > best.score) {
+          best = { gestionnaire: g, score };
+        }
+      }
+
+      return best;
+    }
+
+    const orphanedDemandes = await db
+      .select()
+      .from(demandes)
+      .where(and(isNull(demandes.gestionnaireId), sql`${demandes.commentaire} LIKE '%Syndic:%'`));
+
+    let demandesUpdated = 0;
+    const unmatched: string[] = [];
+    const syndicCache = new Map<string, number | null>();
+
+    for (const demande of orphanedDemandes) {
+      if (!demande.commentaire) continue;
+      const match = demande.commentaire.match(/Syndic:\s*(.+)/);
+      if (!match) continue;
+      const syndicName = match[1].trim();
+
+      if (!syndicCache.has(syndicName)) {
+        const best = findBestGestionnaire(syndicName);
+        if (best && best.score >= 0.65) {
+          syndicCache.set(syndicName, best.gestionnaire.id);
+        } else {
+          syndicCache.set(syndicName, null);
+          if (!unmatched.includes(syndicName)) {
+            unmatched.push(syndicName);
+          }
+        }
+      }
+
+      const gestionnaireId = syndicCache.get(syndicName);
+      if (gestionnaireId !== null && gestionnaireId !== undefined) {
+        await db
+          .update(demandes)
+          .set({ gestionnaireId })
+          .where(eq(demandes.id, demande.id));
+        demandesUpdated++;
+      } else if (!unmatched.includes(syndicName)) {
+        unmatched.push(syndicName);
+      }
+    }
+
+    const orphanedBiens = await db
+      .select()
+      .from(biens)
+      .where(isNull(biens.gestionnaireId));
+
+    let biensUpdated = 0;
+
+    for (const bien of orphanedBiens) {
+      const linkedDemandes = await db
+        .select({ gestionnaireId: demandes.gestionnaireId })
+        .from(demandes)
+        .where(and(eq(demandes.bienId, bien.id), sql`${demandes.gestionnaireId} IS NOT NULL`));
+
+      if (linkedDemandes.length === 0) continue;
+
+      const counts = new Map<number, number>();
+      for (const d of linkedDemandes) {
+        if (d.gestionnaireId !== null) {
+          counts.set(d.gestionnaireId, (counts.get(d.gestionnaireId) ?? 0) + 1);
+        }
+      }
+
+      let bestGestionnaireId: number | null = null;
+      let bestCount = 0;
+      for (const [gId, cnt] of Array.from(counts.entries())) {
+        if (cnt > bestCount) {
+          bestCount = cnt;
+          bestGestionnaireId = gId;
+        }
+      }
+
+      if (bestGestionnaireId !== null) {
+        await db
+          .update(biens)
+          .set({ gestionnaireId: bestGestionnaireId })
+          .where(eq(biens.id, bien.id));
+        biensUpdated++;
+      }
+    }
+
+    return { demandesUpdated, biensUpdated, unmatched };
   }
 }
 
