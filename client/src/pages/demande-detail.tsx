@@ -38,6 +38,7 @@ import {
   Inbox,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
 } from "lucide-react";
 
 type DocumentMeta = Omit<Document, "data"> & { size: number };
@@ -263,6 +264,19 @@ export default function DemandeDetail() {
         r.status === 404 ? null : r.json()
       ),
     enabled: !!id,
+  });
+
+  const reparseMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/demandes/${id}/reparse`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demandes", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/demandes"] });
+      toast({ title: "Reparse réussi", description: "Les informations ont été mises à jour depuis l'email." });
+    },
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : "Impossible de relancer le parsing.";
+      toast({ title: "Erreur", description: message, variant: "destructive" });
+    },
   });
 
   const reassignMutation = useMutation({
@@ -608,6 +622,19 @@ export default function DemandeDetail() {
               >
                 {emailSource.statut}
               </Badge>
+            )}
+            {emailSource && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto"
+                onClick={() => reparseMutation.mutate()}
+                disabled={reparseMutation.isPending}
+                data-testid="button-reparse-email"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${reparseMutation.isPending ? "animate-spin" : ""}`} />
+                {reparseMutation.isPending ? "Parsing…" : "Reparser"}
+              </Button>
             )}
           </div>
 

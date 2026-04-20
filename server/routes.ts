@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertBienSchema, updateBienSchema, searchBienSchema, insertDemandeSchema, updateDemandeSchema, insertGestionnaireSchema, updateGestionnaireSchema, ETATS, METIERS, CONTACT_QUALITES } from "@shared/schema";
 import { ZodError, z } from "zod";
-import { emailServiceState, triggerManualSync } from "./email-service";
+import { emailServiceState, triggerManualSync, parseEmailWithLLM } from "./email-service";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -406,6 +406,59 @@ export async function registerRoutes(
       }
 
       return res.json(log);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/demandes/:id/reparse", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const demande = await storage.getDemandeById(id);
+      if (!demande) {
+        return res.status(404).json({ error: "Demande non trouvee" });
+      }
+
+      const emailLog = await storage.getEmailLogByDemande(id);
+      if (!emailLog) {
+        return res.status(400).json({ error: "Aucun email source associé à cette demande" });
+      }
+
+      const parsed = await parseEmailWithLLM(emailLog.body || "", emailLog.subject, emailLog.from);
+      if (!parsed) {
+        return res.status(502).json({ error: "Le parsing LLM a échoué, veuillez réessayer" });
+      }
+
+      const VALID_METIERS = ["Etancheite", "Plomberie", "Electricite", "Autre"] as const;
+      type ValidMetier = typeof VALID_METIERS[number];
+
+      const metierRaw = parsed.demande?.metier;
+      const metierValue: ValidMetier = VALID_METIERS.includes(metierRaw as ValidMetier)
+        ? (metierRaw as ValidMetier)
+        : "Autre";
+
+      const champsManquantsList: string[] = [];
+      if (!parsed.bien?.adresse) champsManquantsList.push("adresse");
+      if (!parsed.bien?.code_postal) champsManquantsList.push("code postal");
+      if (!metierRaw) champsManquantsList.push("métier");
+      if (!parsed.demande?.objet) champsManquantsList.push("objet");
+
+      const infoManquantes = champsManquantsList.length > 0;
+
+      const updated = await storage.updateDemande(id, {
+        objet: (parsed.demande?.objet || demande.objet).slice(0, 200),
+        detail: parsed.demande?.detail || demande.detail,
+        metier: metierValue,
+        refSyndic: parsed.demande?.ref_syndic || demande.refSyndic,
+        infoManquantes,
+        champsManquants: infoManquantes ? champsManquantsList.join(", ") : null,
+      });
+
+      return res.json(updated);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });
     }

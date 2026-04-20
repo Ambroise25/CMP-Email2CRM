@@ -228,7 +228,7 @@ interface ParsedEmailData {
   confiance: number;
 }
 
-async function parseEmailWithLLM(
+export async function parseEmailWithLLM(
   body: string,
   subject: string,
   from: string
