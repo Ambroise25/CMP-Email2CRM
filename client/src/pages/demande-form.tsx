@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { GestionnaireCombobox } from "@/components/gestionnaire-combobox";
+import { BienCombobox } from "@/components/bien-combobox";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -63,7 +64,7 @@ export default function DemandeForm() {
   });
 
   const { data: biensData, isLoading: biensLoading } = useQuery<PaginatedResponse<BienWithGestionnaire>>({
-    queryKey: ["/api/biens", "?page=1&limit=100"],
+    queryKey: ["/api/biens", "?page=1&limit=1000"],
   });
 
   const { data: gestionnairesList, isLoading: gestionnairesLoading } = useQuery<Gestionnaire[]>({
@@ -195,25 +196,15 @@ export default function DemandeForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Bien *</FormLabel>
-                    <Select
-                      onValueChange={(val) => field.onChange(parseInt(val))}
-                      value={field.value ? field.value.toString() : ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-bien">
-                          <SelectValue placeholder="Selectionner un bien" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {biensLoading ? (
-                          <div className="p-2 text-center text-sm text-muted-foreground">Chargement...</div>
-                        ) : biensData?.data.map((b) => (
-                          <SelectItem key={b.id} value={b.id.toString()} data-testid={`option-bien-${b.id}`}>
-                            {b.adresse} - {b.codePostal} {b.ville}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <BienCombobox
+                        value={field.value || null}
+                        onChange={(id) => field.onChange(id)}
+                        biens={biensData?.data ?? []}
+                        loading={biensLoading}
+                        data-testid="select-bien"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
