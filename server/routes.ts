@@ -393,6 +393,24 @@ export async function registerRoutes(
   ];
   const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
+  app.get("/api/demandes/:id/email", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID invalide" });
+      }
+
+      const log = await storage.getEmailLogByDemande(id);
+      if (!log) {
+        return res.status(404).json({ error: "Aucun email associé à cette demande" });
+      }
+
+      return res.json(log);
+    } catch (err) {
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   app.get("/api/demandes/:id/documents", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

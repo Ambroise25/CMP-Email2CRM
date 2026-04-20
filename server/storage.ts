@@ -93,6 +93,7 @@ export interface IStorage {
   createDemande(demande: InsertDemande): Promise<Demande>;
   updateDemande(id: number, updates: UpdateDemande): Promise<Demande | undefined>;
   getEmailLogs(page: number, limit: number, statuts?: string[]): Promise<PaginatedResponse<EmailLog>>;
+  getEmailLogByDemande(demandeId: number): Promise<EmailLog | undefined>;
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   emailLogExists(messageId: string): Promise<boolean>;
   getDocumentsByDemande(demandeId: number): Promise<Document[]>;
@@ -413,6 +414,15 @@ export class DatabaseStorage implements IStorage {
   async createEmailLog(logEntry: InsertEmailLog): Promise<EmailLog> {
     const [created] = await db.insert(emailLogs).values(logEntry).returning();
     return created;
+  }
+
+  async getEmailLogByDemande(demandeId: number): Promise<EmailLog | undefined> {
+    const [log] = await db
+      .select()
+      .from(emailLogs)
+      .where(eq(emailLogs.demandeId, demandeId))
+      .limit(1);
+    return log;
   }
 
   async emailLogExists(messageId: string): Promise<boolean> {

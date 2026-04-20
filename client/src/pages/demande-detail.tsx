@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import type { DemandeWithRelations, Document, Gestionnaire } from "@shared/schema";
+import type { DemandeWithRelations, Document, Gestionnaire, EmailLog } from "@shared/schema";
 import { etatLabels, contactQualiteLabels } from "@shared/schema";
 import { GestionnaireCombobox } from "@/components/gestionnaire-combobox";
 import { Card } from "@/components/ui/card";
@@ -35,6 +35,9 @@ import {
   Image,
   AlertTriangle,
   Save,
+  Inbox,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 type DocumentMeta = Omit<Document, "data"> & { size: number };
@@ -243,6 +246,7 @@ export default function DemandeDetail() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const [selectedGestionnaireId, setSelectedGestionnaireId] = useState<number | null>(null);
+  const [emailBodyExpanded, setEmailBodyExpanded] = useState(false);
 
   const { data: demande, isLoading, error } = useQuery<DemandeWithRelations>({
     queryKey: ["/api/demandes", id],
@@ -250,6 +254,15 @@ export default function DemandeDetail() {
 
   const { data: gestionnaires = [] } = useQuery<Gestionnaire[]>({
     queryKey: ["/api/gestionnaires"],
+  });
+
+  const { data: emailSource } = useQuery<EmailLog | null>({
+    queryKey: ["/api/demandes", id, "email"],
+    queryFn: () =>
+      fetch(`/api/demandes/${id}/email`).then((r) =>
+        r.status === 404 ? null : r.json()
+      ),
+    enabled: !!id,
   });
 
   const reassignMutation = useMutation({
@@ -576,6 +589,90 @@ export default function DemandeDetail() {
         </Card>
 
         <DocumentsSection demandeId={demande.id} />
+
+        {/* Email source card */}
+        <Card className="p-6" data-testid="card-email-source">
+          <div className="flex items-center gap-2 mb-4">
+            <Inbox className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-base font-semibold text-foreground">Email source</h2>
+            {emailSource && (
+              <Badge
+                className={
+                  emailSource.statut === "traite"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                    : emailSource.statut === "erreur"
+                    ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                    : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                }
+                data-testid="badge-email-statut"
+              >
+                {emailSource.statut}
+              </Badge>
+            )}
+          </div>
+
+          {emailSource === undefined ? (
+            <div className="text-muted-foreground text-sm">Chargement…</div>
+          ) : emailSource === null ? (
+            <p className="text-muted-foreground text-sm italic" data-testid="text-email-none">
+              Demande créée manuellement
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 text-sm" data-testid="text-email-from">
+                <Mail className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <span className="text-foreground">{emailSource.from}</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm" data-testid="text-email-subject">
+                <Tag className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <span className="font-semibold text-foreground">{emailSource.subject}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-email-received-at">
+                <Calendar className="w-4 h-4 shrink-0" />
+                <span>
+                  {new Date(emailSource.receivedAt).toLocaleString("fr-FR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+              {emailSource.body && (
+                <div className="mt-3">
+                  <div
+                    className={`bg-muted/50 rounded-md p-3 text-xs font-mono whitespace-pre-wrap overflow-y-auto transition-all ${
+                      emailBodyExpanded ? "max-h-none" : "max-h-64"
+                    }`}
+                    data-testid="text-email-body"
+                  >
+                    {emailSource.body}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 text-xs text-muted-foreground"
+                    onClick={() => setEmailBodyExpanded((v) => !v)}
+                    data-testid="button-toggle-email-body"
+                  >
+                    {emailBodyExpanded ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5 mr-1" />
+                        Voir moins
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5 mr-1" />
+                        Voir plus
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );
