@@ -141,7 +141,7 @@ export async function registerRoutes(
 
   app.get("/api/gestionnaires", async (_req, res) => {
     try {
-      const list = await storage.getGestionnaires();
+      const list = await storage.getGestionnairesWithBienCount();
       return res.json(list);
     } catch (err) {
       return res.status(500).json({ error: "Erreur serveur" });

@@ -81,6 +81,7 @@ export interface IStorage {
   updateBien(id: number, bien: UpdateBien): Promise<Bien | undefined>;
   searchBiens(adresse: string, codePostal: string): Promise<{ matches: BienMatch[]; best_match: BienMatch | null }>;
   getGestionnaires(): Promise<Gestionnaire[]>;
+  getGestionnairesWithBienCount(): Promise<(Gestionnaire & { bienCount: number })[]>;
   getGestionnaireById(id: number): Promise<Gestionnaire | undefined>;
   createGestionnaire(gestionnaire: InsertGestionnaire): Promise<Gestionnaire>;
   updateGestionnaire(id: number, updates: UpdateGestionnaire): Promise<Gestionnaire | undefined>;
@@ -206,6 +207,23 @@ export class DatabaseStorage implements IStorage {
 
   async getGestionnaires(): Promise<Gestionnaire[]> {
     return await db.select().from(gestionnaires).orderBy(gestionnaires.nom);
+  }
+
+  async getGestionnairesWithBienCount(): Promise<(Gestionnaire & { bienCount: number })[]> {
+    const rows = await db
+      .select({
+        id: gestionnaires.id,
+        nom: gestionnaires.nom,
+        email: gestionnaires.email,
+        telephone: gestionnaires.telephone,
+        adresse: gestionnaires.adresse,
+        bienCount: sql<number>`count(${biens.id})::int`,
+      })
+      .from(gestionnaires)
+      .leftJoin(biens, eq(biens.gestionnaireId, gestionnaires.id))
+      .groupBy(gestionnaires.id)
+      .orderBy(gestionnaires.nom);
+    return rows;
   }
 
   async getGestionnaireById(id: number): Promise<Gestionnaire | undefined> {

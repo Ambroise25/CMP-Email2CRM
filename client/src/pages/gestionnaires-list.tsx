@@ -55,7 +55,23 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  Building2,
 } from "lucide-react";
+
+type GestionnaireWithBienCount = Gestionnaire & { bienCount: number };
+
+type SortOption = "nom_asc" | "nom_desc" | "biens_desc" | "biens_asc";
+
+function sortGestionnaires(list: GestionnaireWithBienCount[], sort: SortOption): GestionnaireWithBienCount[] {
+  return [...list].sort((a, b) => {
+    if (sort === "nom_asc") return a.nom.localeCompare(b.nom, "fr");
+    if (sort === "nom_desc") return b.nom.localeCompare(a.nom, "fr");
+    if (sort === "biens_desc") return b.bienCount - a.bienCount || a.nom.localeCompare(b.nom, "fr");
+    if (sort === "biens_asc") return a.bienCount - b.bienCount || a.nom.localeCompare(b.nom, "fr");
+    return 0;
+  });
+}
 
 const formSchema = insertGestionnaireSchema.extend({
   nom: z.string().min(1, "Le nom est requis"),
@@ -325,18 +341,23 @@ export default function GestionnairesList() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data: gestionnairesList, isLoading } = useQuery<Gestionnaire[]>({
+  const [sortBy, setSortBy] = useState<SortOption>("nom_asc");
+
+  const { data: gestionnairesList, isLoading } = useQuery<GestionnaireWithBienCount[]>({
     queryKey: ["/api/gestionnaires"],
   });
 
-  const filteredGestionnaires = (gestionnairesList ?? []).filter((g) => {
-    const term = search.toLowerCase().trim();
-    if (!term) return true;
-    return (
-      g.nom.toLowerCase().includes(term) ||
-      (g.adresse ?? "").toLowerCase().includes(term)
-    );
-  });
+  const filteredGestionnaires = sortGestionnaires(
+    (gestionnairesList ?? []).filter((g) => {
+      const term = search.toLowerCase().trim();
+      if (!term) return true;
+      return (
+        g.nom.toLowerCase().includes(term) ||
+        (g.adresse ?? "").toLowerCase().includes(term)
+      );
+    }),
+    sortBy
+  );
 
   const totalPages = Math.max(1, Math.ceil(filteredGestionnaires.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -347,6 +368,11 @@ export default function GestionnairesList() {
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: SortOption) => {
+    setSortBy(value);
     setPage(1);
   };
 
@@ -434,15 +460,29 @@ export default function GestionnairesList() {
           </Button>
         </div>
 
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Rechercher par nom ou adresse..."
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-gestionnaire"
-          />
+        <div className="flex gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Rechercher par nom ou adresse..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-gestionnaire"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={(v) => handleSortChange(v as SortOption)}>
+            <SelectTrigger className="w-52 shrink-0" data-testid="select-sort-gestionnaires">
+              <ArrowUpDown className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nom_asc">Nom A → Z</SelectItem>
+              <SelectItem value="nom_desc">Nom Z → A</SelectItem>
+              <SelectItem value="biens_desc">Plus de biens en premier</SelectItem>
+              <SelectItem value="biens_asc">Moins de biens en premier</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading ? (
@@ -490,6 +530,10 @@ export default function GestionnairesList() {
                           {gestionnaire.telephone}
                         </span>
                       )}
+                      <span className="flex items-center gap-1" data-testid={`text-gestionnaire-biencount-${gestionnaire.id}`}>
+                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                        {gestionnaire.bienCount} bien{gestionnaire.bienCount !== 1 ? "s" : ""}
+                      </span>
                       {!gestionnaire.adresse && !gestionnaire.email && !gestionnaire.telephone && (
                         <span className="italic">Aucune coordonnée</span>
                       )}
